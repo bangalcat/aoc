@@ -1,0 +1,135 @@
+# aoc2021 day10
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+## Part1
+
+```elixir
+inputs = """
+[({(<(())[]>[[{[]{<()<>>
+[(()[<>])]({[<{<<[]>>(
+{([(<{}[<>[]}>{[]{[(<()>
+(((({<>}<{<{<>}{[]{[]{}
+[[<[([]))<([[{}[[()]]]
+[{[{({}]{}}([{[{{{}}([]
+{<[[]]>}<{[{[{[]{()[[[]
+[<(<(<(<{}))><([]([]()
+<{([([[(<>()){}]>(<<{{
+<{([{{}}[<[[[<>{}]]]>[]]
+"""
+
+complete? = fn
+  ?(, ?) ->
+    true
+
+  ?{, ?} ->
+    true
+
+  ?[, ?] ->
+    true
+
+  ?<, ?> ->
+    true
+
+  _, _ ->
+    false
+end
+
+score_map = %{
+  ?) => 3,
+  ?] => 57,
+  ?} => 1197,
+  ?> => 25137
+}
+
+input
+|> Kino.Input.read()
+|> String.split("\n", trim: true)
+|> Enum.map(&String.to_charlist/1)
+|> Enum.map(fn line ->
+  line
+  |> Enum.reduce_while([], fn
+    c, st when c in '[({<' ->
+      {:cont, [c | st]}
+
+    c, [] ->
+      {:halt, c}
+
+    c, st ->
+      if complete?.(hd(st), c) do
+        {:cont, tl(st)}
+      else
+        {:halt, c}
+      end
+  end)
+end)
+|> Enum.reject(&is_list/1)
+|> Enum.map(&score_map[&1])
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+complete? = fn
+  ?(, ?) ->
+    true
+
+  ?{, ?} ->
+    true
+
+  ?[, ?] ->
+    true
+
+  ?<, ?> ->
+    true
+
+  _, _ ->
+    false
+end
+
+score_map = %{
+  ?( => 1,
+  ?[ => 2,
+  ?{ => 3,
+  ?< => 4
+}
+
+input
+|> Kino.Input.read()
+|> String.split("\n", trim: true)
+|> Enum.map(&String.to_charlist/1)
+|> Enum.map(fn line ->
+  line
+  |> Enum.reduce_while([], fn
+    c, st when c in '[({<' ->
+      {:cont, [c | st]}
+
+    c, [] ->
+      {:halt, c}
+
+    c, st ->
+      if complete?.(hd(st), c) do
+        {:cont, tl(st)}
+      else
+        {:halt, c}
+      end
+  end)
+end)
+|> Enum.filter(&is_list/1)
+|> Enum.map(fn heads ->
+  Enum.reduce(heads, 0, fn h, score ->
+    score * 5 + score_map[h]
+  end)
+end)
+|> Enum.sort()
+|> then(&Enum.at(&1, div(length(&1), 2)))
+```

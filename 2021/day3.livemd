@@ -1,0 +1,128 @@
+# aoc2021-day3
+
+## Part 1
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("inputs")
+```
+
+```elixir
+gamma_list =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.map(&String.codepoints/1)
+  |> Enum.zip_with(fn list -> Enum.frequencies(list) |> Enum.max_by(&elem(&1, 1)) |> elem(0) end)
+
+gamma = gamma_list |> Enum.join() |> Integer.parse(2) |> elem(0)
+
+epsilon =
+  gamma_list
+  |> Enum.map_join(fn
+    "1" -> "0"
+    "0" -> "1"
+  end)
+  |> Integer.parse(2)
+  |> elem(0)
+
+gamma * epsilon
+```
+
+```elixir
+
+```
+
+## Part 2
+
+```elixir
+input_list =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.map(&String.codepoints/1)
+
+win_bit = input_list |> Enum.map(&Enum.at(&1, 0)) |> Enum.frequencies()
+```
+
+```elixir
+defmodule Part2 do
+  def solve(input_list) do
+    max_fn = fn
+      fq_map ->
+        if (fq_map["0"] || 0) > (fq_map["1"] || 0), do: "0", else: "1"
+    end
+
+    min_fn = fn
+      fq_map ->
+        if (fq_map["0"] || 0) <= (fq_map["1"] || 0), do: "0", else: "1"
+    end
+
+    oxygen = filter_one_by_position(input_list, 0, max_fn) |> bit_to_integer()
+
+    co2 = filter_one_by_position(input_list, 0, min_fn) |> bit_to_integer()
+
+    oxygen * co2
+  end
+
+  def filter_one_by_position(input_list, position, pick_fn)
+  def filter_one_by_position([last_one], _position, _pick_fn), do: last_one
+
+  def filter_one_by_position(input_list, position, pick_fn) when length(input_list) > 1 do
+    win_bit = input_list |> Enum.map(&Enum.at(&1, position)) |> Enum.frequencies() |> pick_fn.()
+
+    input_list
+    |> Enum.filter(fn bits -> Enum.at(bits, position) == win_bit end)
+    |> filter_one_by_position(position + 1, pick_fn)
+  end
+
+  defp bit_to_integer(bits), do: bits |> Enum.join() |> Integer.parse(2) |> elem(0)
+end
+```
+
+```elixir
+Part2.solve(input_list)
+```
+
+## Jose's Solution
+
+```elixir
+defmodule Recursion do
+  defp recur([number], _pos, _fun) do
+    number
+    |> Tuple.to_list()
+    |> List.to_integer(2)
+  end
+
+  defp recur(numbers, pos, fun) do
+    zero_count = Enum.count(numbers, &(elem(&1, pos) == ?0))
+    one_count = length(numbers) - zero_count
+    to_keep = fun.(zero_count, one_count)
+    numbers = Enum.filter(numbers, &(elem(&1, pos) == to_keep))
+    recur(numbers, pos + 1, fun)
+  end
+
+  def o2(numbers) do
+    recur(numbers, 0, fn zero_count, one_count ->
+      if one_count >= zero_count, do: ?1, else: ?0
+    end)
+  end
+
+  def co2(numbers) do
+    recur(numbers, 0, fn zero_count, one_count ->
+      if zero_count <= one_count, do: ?0, else: ?1
+    end)
+  end
+end
+
+numbers =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.map(&(&1 |> String.to_charlist() |> List.to_tuple()))
+
+Recursion.o2(numbers) * Recursion.co2(numbers)
+```

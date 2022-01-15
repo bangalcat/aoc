@@ -1,0 +1,90 @@
+# aoc2021 day 7
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+numbers =
+  input
+  |> Kino.Input.read()
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.sort()
+
+{min, max} = Enum.min_max(numbers)
+
+min..max
+|> Enum.map(fn x ->
+  numbers
+  |> Enum.map(&abs(&1 - x))
+  |> Enum.sum()
+end)
+|> Enum.min()
+```
+
+간단 풀이: 중위값 (median) 이 답임
+
+## Part2
+
+```elixir
+numbers =
+  input
+  |> Kino.Input.read()
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.sort()
+
+min = Enum.min(numbers)
+max = Enum.max(numbers)
+
+ssum = fn n ->
+  div(n * (n + 1), 2)
+end
+
+min..max
+|> Enum.map(fn x ->
+  numbers
+  |> Enum.map(&(abs(&1 - x) |> ssum.()))
+  |> Enum.sum()
+end)
+|> Enum.min()
+```
+
+간단 풀이: 평균값 (mean)이 답임
+
+## ???
+
+````elixir
+Kino.animate(300, true, fn
+  true ->
+    spaces = String.duplicate(" ", Enum.random(0..8))
+
+    {:cont,
+     Kino.Markdown.new(~s"""
+     ```
+     #{spaces}(||) (^,,,,°) (\\/)
+     ```
+     """), false}
+
+  false ->
+    spaces = String.duplicate(" ", Enum.random(0..8))
+
+    {:cont,
+     Kino.Markdown.new(~s"""
+     ```
+     #{spaces}(\\/) (°,,,,^) (||)
+     ```
+     """), true}
+end)
+````

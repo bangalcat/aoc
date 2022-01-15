@@ -1,0 +1,85 @@
+# aoc2021-day6
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.0"}])
+```
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+## Part 1
+
+```elixir
+defmodule Recursive do
+  def recursive(list, after_days),
+    do: list |> Enum.reverse() |> do_recursive(after_days)
+
+  defp do_recursive(list, 0), do: list |> Enum.count()
+
+  defp do_recursive(list, after_days) do
+    zero_cnt = list |> Enum.count(&(&1 == 0))
+    new_fishes = Stream.repeatedly(fn -> 9 end) |> Enum.take(zero_cnt)
+
+    next_list =
+      (new_fishes ++ list)
+      |> Enum.map(fn
+        d when d == 0 -> 6
+        d -> d - 1
+      end)
+
+    do_recursive(next_list, after_days - 1)
+  end
+end
+```
+
+```elixir
+inputs = """
+3,4,3,1,2
+"""
+
+input
+|> Kino.Input.read()
+|> String.split([",", "\n"], trim: true)
+|> Enum.map(&String.to_integer/1)
+|> Recursive.recursive(80)
+```
+
+## Part 2
+
+최적화 필요!
+
+```elixir
+defmodule Recursive2 do
+  def recursive(fish_map, 0), do: Map.values(fish_map) |> Enum.sum()
+
+  def recursive(fish_map, after_days) do
+    fish_map
+    |> Enum.reduce(%{}, fn
+      {0, cnt}, next_map ->
+        next_map
+        |> Map.put(8, cnt)
+        |> Map.update(6, cnt, &(&1 + cnt))
+
+      {day, cnt}, next_map ->
+        next_map |> Map.update(day - 1, cnt, &(&1 + cnt))
+    end)
+    |> recursive(after_days - 1)
+  end
+end
+```
+
+```elixir
+inputs = """
+3,4,3,1,2
+"""
+
+input
+|> Kino.Input.read()
+|> String.split([",", "\n"], trim: true)
+|> Enum.map(&String.to_integer/1)
+|> Enum.frequencies()
+|> Recursive2.recursive(256)
+```

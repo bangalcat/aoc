@@ -1,0 +1,88 @@
+# aoc2021 day8
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("paste your input")
+```
+
+## Part 1
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.split("\n", trim: true)
+|> Enum.map(
+  &(String.split(&1, "|", trim: true)
+    |> Enum.map(fn s -> String.split(s, " ", trim: true) end))
+)
+|> Enum.map(fn [_entries, digits] ->
+  Enum.count(digits, &(byte_size(&1) in [2, 4, 3, 7]))
+end)
+|> Enum.sum()
+```
+
+## Part 2
+
+```
+2 => [1]
+4 => [4]
+3 => [7]
+7 => [8]
+
+2 3 5 : 5개
+0 6 9 : 6개
+
+[2,3,5] 중에 [1] 가진거는 [3] 밖에 없음 
+[0,6,9] 중에 [4] 가진건 [9]밖에 없음
+[0,6] 중에 [7] 가진건 [0]
+[2,5] 중에 [6]에 포함되는건 [5]
+```
+
+```elixir
+defmodule Part2 do
+  def deduce([entries, digits]) do
+    sets = entries |> Enum.map(&(String.to_charlist(&1) |> MapSet.new()))
+    one = Enum.find(sets, &(MapSet.size(&1) == 2))
+    # IO.inspect(one)
+    four = Enum.find(sets, &(MapSet.size(&1) == 4))
+    seven = Enum.find(sets, &(MapSet.size(&1) == 3))
+    eight = Enum.find(sets, &(MapSet.size(&1) == 7))
+    three = Enum.find(sets, &(MapSet.size(&1) == 5 && MapSet.subset?(one, &1)))
+    nine = Enum.find(sets, &(MapSet.size(&1) == 6 && MapSet.subset?(four, &1)))
+    zero = Enum.find(sets, &(MapSet.size(&1) == 6 && MapSet.subset?(seven, &1) && &1 != nine))
+    six = Enum.find(sets, &(MapSet.size(&1) == 6 && &1 not in [zero, nine]))
+    five = Enum.find(sets, &(MapSet.size(&1) == 5 && MapSet.subset?(&1, six)))
+    two = Enum.find(sets, &(MapSet.size(&1) == 5 && &1 not in [three, five]))
+
+    number_map =
+      [zero, one, two, three, four, five, six, seven, eight, nine]
+      |> Enum.with_index(0)
+      |> Enum.into(%{})
+
+    digits
+    |> Enum.map(&(String.to_charlist(&1) |> MapSet.new()))
+    |> Enum.reduce(0, &(&2 * 10 + number_map[&1]))
+  end
+end
+```
+
+```elixir
+"badc" |> String.to_charlist() |> MapSet.new()
+```
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.split("\n", trim: true)
+|> Enum.map(
+  &(String.split(&1, "|", trim: true)
+    |> Enum.map(fn s -> String.split(s, " ", trim: true) end))
+)
+|> Enum.map(&Part2.deduce/1)
+|> Enum.sum()
+```

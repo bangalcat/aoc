@@ -1,0 +1,139 @@
+# aoc2021 day 12
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+## Section
+
+```elixir
+inputs1 = """
+start-A
+start-b
+A-c
+A-b
+b-d
+A-end
+b-end
+"""
+
+inputs2 = """
+dc-end
+HN-start
+start-kj
+dc-start
+dc-HN
+LN-dc
+HN-end
+kj-sa
+kj-HN
+kj-dc
+"""
+```
+
+```elixir
+defmodule Recursion do
+  def recur(_adj_map, "end", _visited_list), do: 1
+
+  def recur(adj_map, current, visited_list) when length(visited_list) < 100 do
+    next_cands = adj_map[current]
+
+    next_cands
+    |> Enum.filter(&can_go?(&1, visited_list))
+    |> Enum.map(&recur(adj_map, &1, [current | visited_list]))
+    |> Enum.sum()
+  end
+
+  defp can_go?("start", _visited_list), do: false
+
+  defp can_go?(target, visited_list) do
+    cond do
+      String.upcase(target) == target ->
+        true
+
+      target not in visited_list ->
+        true
+
+      true ->
+        false
+    end
+  end
+end
+```
+
+```elixir
+adj_map =
+  input
+  |> Kino.Input.read()
+  |> String.split(["\n", "-"], trim: true)
+  |> Enum.chunk_every(2)
+  |> Enum.reduce(%{}, fn [a, b], adj_map ->
+    adj_map
+    |> Map.update(a, [b], &([b] ++ &1))
+    |> Map.update(b, [a], &([a] ++ &1))
+  end)
+
+Recursion.recur(adj_map, "start", [])
+```
+
+## Part 2
+
+```elixir
+defmodule Recursion2 do
+  def recur(_adj_map, "end", visited_list, _) do
+    # IO.inspect(visited_list)
+    1
+  end
+
+  def recur(adj_map, current, visited_list, chance?) when length(visited_list) < 100 do
+    next_cands = adj_map[current]
+
+    next_cands
+    |> Enum.filter(&can_go?(&1, visited_list, chance?))
+    |> Enum.map(
+      &recur(adj_map, &1, [current | visited_list], chance? && !use_chance?(&1, visited_list))
+    )
+    |> Enum.sum()
+  end
+
+  defp can_go?("start", _visited_list, _), do: false
+
+  defp can_go?(target, visited_list, chance?) do
+    cond do
+      String.upcase(target) == target ->
+        true
+
+      target not in visited_list or chance? ->
+        true
+
+      true ->
+        false
+    end
+  end
+
+  defp use_chance?(target, visited_list) do
+    String.downcase(target) == target and target in visited_list
+  end
+end
+```
+
+```elixir
+adj_map =
+  input
+  |> Kino.Input.read()
+  |> String.split(["\n", "-"], trim: true)
+  |> Enum.chunk_every(2)
+  |> Enum.reduce(%{}, fn [a, b], adj_map ->
+    adj_map
+    |> Map.update(a, [b], &([b] ++ &1))
+    |> Map.update(b, [a], &([a] ++ &1))
+  end)
+
+Recursion2.recur(adj_map, "start", [], true)
+```

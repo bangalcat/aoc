@@ -1,0 +1,81 @@
+# aoc2021-day 5
+
+## Part 1
+
+```elixir
+Mix.install([{:kino, "~> 0.4.0"}])
+```
+
+```elixir
+input = Kino.Input.textarea("Please paste your input")
+```
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.split("\n", trim: true)
+|> Enum.map(fn line ->
+  String.split(line, [",", " -> "], trim: true) |> Enum.map(&String.to_integer/1)
+end)
+|> Enum.reduce(%{}, fn
+  [ax, ay, ax, by], acc ->
+    for y <- ay..by, reduce: acc do
+      map -> Map.update(map, {ax, y}, 1, &(&1 + 1))
+    end
+
+  [ax, ay, bx, ay], acc ->
+    for x <- ax..bx, reduce: acc do
+      map -> Map.update(map, {x, ay}, 1, &(&1 + 1))
+    end
+
+  # only consider horizontal and vertical lines
+  _other, acc ->
+    acc
+end)
+|> Enum.count(fn {{_x, _y}, c} -> c >= 2 end)
+```
+
+## Part 2
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.split("\n", trim: true)
+|> Enum.map(fn line ->
+  String.split(line, [",", " -> "], trim: true) |> Enum.map(&String.to_integer/1)
+end)
+|> Enum.reduce(%{}, fn
+  [ax, ay, ax, by], acc ->
+    for y <- ay..by, reduce: acc do
+      map -> Map.update(map, {ax, y}, 1, &(&1 + 1))
+    end
+
+  [ax, ay, bx, ay], acc ->
+    for x <- ax..bx, reduce: acc do
+      map -> Map.update(map, {x, ay}, 1, &(&1 + 1))
+    end
+
+  [ax, ay, bx, by], acc when abs(ax - bx) == abs(ay - by) ->
+    for {x, y} <- Enum.zip(ax..bx, ay..by), reduce: acc do
+      map -> Map.update(map, {x, y}, 1, &(&1 + 1))
+    end
+
+  _other, acc ->
+    acc
+end)
+|> Enum.count(fn {{_x, _y}, c} -> c >= 2 end)
+```
+
+```elixir
+Mix.install([{:ecto, "~> 3.7"}])
+```
+
+```elixir
+defmodule Test do
+  def test() do
+    "Hello World"
+  end
+end
+
+Test.test()
+```

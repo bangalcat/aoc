@@ -1,0 +1,115 @@
+# aoc2021-day4
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.0"}])
+```
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+## Part 1
+
+```elixir
+defmodule Bingo do
+  def make_board_map(raw_board) do
+    raw_board
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {line, r}, m ->
+      0..4
+      |> Enum.map(&{{r, &1}, {elem(line, &1), false}})
+      |> Enum.into(m)
+    end)
+  end
+
+  def play([], _boards), do: raise("no winner")
+
+  def play([drawn | rest], boards) do
+    next_boards =
+      boards
+      |> Enum.map(&mark(&1, drawn))
+
+    case Enum.find(next_boards, &check_bingo(&1)) do
+      nil -> play(rest, next_boards)
+      board -> get_score(board, drawn)
+    end
+  end
+
+  # this is for Part 2
+  def play_to_lose([], _boards), do: raise("no winner")
+
+  def play_to_lose([drawn | rest], boards) do
+    next_boards =
+      boards
+      |> Enum.map(&mark(&1, drawn))
+
+    case Enum.reject(next_boards, &check_bingo(&1)) do
+      [] -> get_score(hd(next_boards), drawn)
+      without_winner -> play_to_lose(rest, without_winner)
+    end
+  end
+
+  def mark(board_map, drawn) do
+    Enum.map(board_map, fn
+      {k, {^drawn, false}} ->
+        {k, {drawn, true}}
+
+      other ->
+        other
+    end)
+    |> Enum.into(%{})
+  end
+
+  def check_bingo(board) do
+    0..4
+    |> Enum.any?(fn i ->
+      0..4 |> Enum.all?(&(board |> Map.get({&1, i}) |> elem(1))) or
+        0..4 |> Enum.all?(&(board |> Map.get({i, &1}) |> elem(1)))
+    end)
+  end
+
+  def get_score(board, last_drawn) do
+    board
+    |> Enum.filter(fn {_k, v} -> not elem(v, 1) end)
+    |> Enum.map(fn {_k, {n, _}} -> String.to_integer(n) end)
+    |> Enum.sum()
+    |> Kernel.*(String.to_integer(last_drawn))
+  end
+end
+```
+
+```elixir
+inputs = input |> Kino.Input.read() |> String.split("\n", trim: true)
+
+[drawn_numbers | board_lines] = inputs
+
+boards =
+  board_lines
+  |> Enum.map(&(String.split(&1, " ", trim: true) |> List.to_tuple()))
+  |> Enum.chunk_every(5)
+  |> Enum.map(&Bingo.make_board_map/1)
+
+drawn_numbers
+|> String.split(",")
+|> Bingo.play(boards)
+```
+
+## Part 2
+
+```elixir
+inputs = input |> Kino.Input.read() |> String.split("\n", trim: true)
+
+[drawn_numbers | board_lines] = inputs
+
+boards =
+  board_lines
+  |> Enum.map(&(String.split(&1, " ", trim: true) |> List.to_tuple()))
+  |> Enum.chunk_every(5)
+  |> Enum.map(&Bingo.make_board_map/1)
+
+drawn_numbers
+|> String.split(",")
+|> Bingo.play_to_lose(boards)
+```

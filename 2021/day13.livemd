@@ -1,0 +1,134 @@
+# aoc 2021 day 13
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+## Part1
+
+```elixir
+defmodule Part1 do
+  def fold(pos_map, {:x, fold_x}) do
+    pos_map
+    |> Map.new(fn
+      {{x, y}, true} when x > fold_x ->
+        {{fold_x * 2 - x, y}, true}
+
+      other ->
+        other
+    end)
+  end
+
+  def fold(pos_map, {:y, fold_y}) do
+    pos_map
+    |> Map.new(fn
+      {{x, y}, true} when y > fold_y ->
+        {{x, fold_y * 2 - y}, true}
+
+      other ->
+        other
+    end)
+  end
+end
+```
+
+```elixir
+lines =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+
+{coord_lines, fold_command_lines} = Enum.split_while(lines, &(!String.starts_with?(&1, "fold")))
+
+coords =
+  coord_lines
+  |> Stream.map(&String.split(&1, ","))
+  |> Stream.map(&Enum.map(&1, fn s -> String.to_integer(s) end))
+
+fold_commands =
+  fold_command_lines
+  |> Enum.map(fn
+    "fold along x=" <> x ->
+      {:x, String.to_integer(x)}
+
+    "fold along y=" <> y ->
+      {:y, String.to_integer(y)}
+  end)
+```
+
+```elixir
+pos_map =
+  coords
+  |> Enum.reduce(%{}, fn [x, y], pos_map ->
+    put_in(pos_map, [{x, y}], true)
+  end)
+
+[{xy, num} | _] = fold_commands
+
+Part1.fold(pos_map, {xy, num})
+|> Enum.count()
+```
+
+## Part 2
+
+```elixir
+{max_x, max_y} =
+  pos_map
+  |> Map.keys()
+  |> then(fn keys ->
+    {max_x, _} = Enum.max(keys)
+    {_, max_y} = Enum.max_by(keys, &elem(&1, 1))
+    {max_x, max_y}
+  end)
+```
+
+```elixir
+defmodule Drawer do
+  def draw(pos_map) do
+    {max_x, max_y} = max_xy(pos_map)
+
+    0..max_y
+    |> Enum.map_join("\n", fn y ->
+      0..max_x
+      |> Enum.map_join(fn x ->
+        if pos_map[{x, y}] do
+          '#'
+        else
+          '.'
+        end
+      end)
+    end)
+  end
+
+  defp max_xy(pos_map) do
+    pos_map
+    |> Map.keys()
+    |> then(fn keys ->
+      {max_x, _} = Enum.max(keys)
+      {_, max_y} = Enum.max_by(keys, &elem(&1, 1))
+      {max_x, max_y}
+    end)
+  end
+end
+```
+
+```elixir
+pos_map =
+  coords
+  |> Enum.reduce(%{}, fn [x, y], pos_map ->
+    put_in(pos_map, [{x, y}], true)
+  end)
+
+fold_commands
+|> Enum.reduce(pos_map, fn command, acc ->
+  Part1.fold(acc, command)
+end)
+|> Drawer.draw()
+|> IO.puts()
+```

@@ -1,0 +1,107 @@
+# Untitled notebook
+
+## Section
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("paste input")
+```
+
+```elixir
+inputs = """
+5483143223
+2745854711
+5264556173
+6141336146
+6357385478
+4167524645
+2176841721
+6882881134
+4846848554
+5283751526
+"""
+
+lines =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+
+grid =
+  for {line, r} <- Enum.with_index(lines),
+      {v, c} <- line |> String.to_charlist() |> Enum.with_index() do
+    {{r, c}, v - ?0}
+  end
+  |> Enum.into(%{})
+```
+
+## Part 1
+
+```elixir
+defmodule Part1.Recursion do
+  @directions for r <- -1..1, c <- -1..1, {r, c} != {0, 0}, do: {r, c}
+
+  def flash(grid) do
+    next_grid =
+      grid
+      |> Enum.map(fn {pos, v} -> {pos, v + 1} end)
+      |> Enum.into(%{})
+
+    targets =
+      next_grid
+      |> Enum.filter(&match?({{_, _}, 10}, &1))
+      |> Enum.map(fn {pos, _v} -> pos end)
+
+    do_flash(targets, next_grid, length(targets))
+  end
+
+  defp do_flash([], grid, count),
+    do:
+      {count,
+       grid
+       |> Enum.map(fn
+         {pos, 10} -> {pos, 0}
+         o -> o
+       end)
+       |> Enum.into(%{})}
+
+  defp do_flash([{r, c} | rest], grid, count) do
+    {next_grid, new_targets} =
+      @directions
+      |> Enum.reduce({grid, MapSet.new()}, fn {dr, dc}, {g, set} ->
+        {nr, nc} = {dr + r, dc + c}
+        nset = if g[{nr, nc}] == 9, do: MapSet.put(set, {nr, nc}), else: set
+        ng = if g[{nr, nc}] in 1..9, do: Map.put(g, {nr, nc}, rem(g[{nr, nc}] + 1, 10)), else: g
+        {ng, nset}
+      end)
+
+    do_flash(rest ++ Enum.to_list(new_targets), next_grid, count + Enum.count(new_targets))
+  end
+end
+```
+
+```elixir
+{flashes, _} =
+  1..100
+  |> Enum.map_reduce(grid, fn _, prev_grid ->
+    Part1.Recursion.flash(prev_grid)
+  end)
+
+flashes
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+grid_size = Enum.count(grid)
+
+step =
+  1..1000
+  |> Enum.reduce_while(grid, fn step, prev_grid ->
+    {count, next_grid} = Part1.Recursion.flash(prev_grid)
+    if count == grid_size, do: {:halt, step}, else: {:cont, next_grid}
+  end)
+```

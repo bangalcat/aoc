@@ -1,0 +1,109 @@
+# aoc2021 day9
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("paste your input")
+```
+
+## Part 1
+
+```elixir
+heightmap =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.map(&String.to_charlist/1)
+  |> Enum.with_index()
+  |> Enum.flat_map(fn {line, r} ->
+    line
+    |> Enum.with_index()
+    |> Enum.map(fn {v, c} -> {{r, c}, v - 48} end)
+  end)
+  |> Enum.into(%{})
+
+{{max_row, max_col}, _} = Enum.max(heightmap)
+
+directions = [{1, 0}, {0, -1}, {-1, 0}, {0, 1}]
+
+heightmap
+|> Enum.filter(fn {{cr, cc}, h} ->
+  directions
+  |> Enum.filter(fn {dr, dc} ->
+    cr + dr <= max_row && cr + dr >= 0 && cc + dc <= max_col && cc + dc >= 0
+  end)
+  |> Enum.all?(fn {dr, dc} ->
+    heightmap[{cr + dr, cc + dc}] > h
+  end)
+end)
+|> Enum.reduce(0, fn {_, h}, s -> h + 1 + s end)
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  @directions [{1, 0}, {0, -1}, {-1, 0}, {0, 1}]
+
+  def count_basin(check_list, heightmap, in_range_fn, basins \\ MapSet.new())
+  def count_basin([], _heightmap, _in_range_fn, basins), do: Enum.count(basins)
+
+  def count_basin([{{cr, cc}, ch} | rest], heightmap, in_range_fn, basins) do
+    candidates =
+      @directions
+      |> Enum.map(fn {dr, dc} -> {{dr + cr, dc + cc}, heightmap[{dr + cr, dc + cc}] || 0} end)
+      |> Enum.filter(fn {{r, c}, h} ->
+        {r, c} not in basins and basin?(ch, h)
+      end)
+
+    count_basin(candidates ++ rest, heightmap, in_range_fn, MapSet.put(basins, {cr, cc}))
+  end
+
+  defp basin?(_cur_h, 9), do: false
+  defp basin?(cur_h, target_h) when cur_h < target_h, do: true
+  defp basin?(_cur_h, _target_h), do: false
+end
+```
+
+```elixir
+heightmap =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.map(&String.to_charlist/1)
+  |> Enum.with_index()
+  |> Enum.flat_map(fn {line, r} ->
+    line
+    |> Enum.with_index()
+    |> Enum.map(fn {v, c} -> {{r, c}, v - ?0} end)
+  end)
+  |> Enum.into(%{})
+
+{{max_row, max_col}, _} = Enum.max(heightmap)
+
+directions = [{1, 0}, {0, -1}, {-1, 0}, {0, 1}]
+
+low_points =
+  heightmap
+  |> Enum.filter(fn {{cr, cc}, h} ->
+    directions
+    |> Enum.all?(fn {dr, dc} ->
+      h < heightmap[{cr + dr, cc + dc}]
+    end)
+  end)
+
+in_range? = fn r, c ->
+  r in 0..max_row and c in 0..max_col
+end
+
+# p1 = hd(low_points) |> IO.inspect()
+low_points
+|> Enum.map(&Part2.count_basin([&1], heightmap, in_range?))
+|> Enum.sort(:desc)
+|> Enum.take(3)
+|> Enum.product()
+```
