@@ -2,20 +2,21 @@
 
 ## 2021
 
-* [Day 1](2021/day1.livemd)
-* [Day 2](2021/day2.livemd)
-* [Day 3](2021/day3.livemd)
-* [Day 4](2021/day4.livemd)
-* [Day 5](2021/day5.livemd)
-* [Day 6](2021/day6.livemd)
-* [Day 7](2021/day7.livemd)
-* [Day 8](2021/day8.livemd)
-* [Day 9](2021/day9.livemd)
-* [Day 10](2021/day10.livemd)
-* [Day 11](2021/day11.livemd)
-* [Day 12](2021/day12.livemd)
-* [Day 13](2021/day13.livemd)
-* [Day 14](2021/day14.livemd)
+* [Day 1](2021/day-1.livemd)
+* [Day 2](2021/day-2.livemd)
+* [Day 3](2021/day-3.livemd)
+* [Day 4](2021/day-4.livemd)
+* [Day 5](2021/day-5.livemd)
+* [Day 6](2021/day-6.livemd)
+* [Day 7](2021/day-7.livemd)
+* [Day 8](2021/day-8.livemd)
+* [Day 9](2021/day-9.livemd)
+* [Day 10](2021/day-10.livemd)
+* [Day 11](2021/day-11.livemd)
+* [Day 12](2021/day-12.livemd)
+* [Day 13](2021/day-13.livemd)
+* [Day 14](2021/day-14.livemd)
+* [Day 15](2021/day-15.livemd)
 
 ```elixir
 
