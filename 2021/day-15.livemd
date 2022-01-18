@@ -1,0 +1,207 @@
+# aoc 2021 day 15
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}, {:heap, "~> 2.0"}])
+```
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+## Part 1
+
+```elixir
+defmodule PQ do
+  def new do
+    []
+  end
+
+  def add([{w, _v} = h | tail], {new_weight, pos}) when new_weight > w do
+    [h | add(tail, {new_weight, pos})]
+  end
+
+  def add(pq, pos), do: [pos | pq]
+end
+
+defmodule PathFinder do
+  @directions [{0, 1}, {1, 0}, {-1, 0}, {0, -1}]
+
+  def shortest(graph, start_coord, end_coord) do
+    queue = PQ.new()
+    distance_map = %{start_coord => 0}
+    queue = PQ.add(queue, {0, {0, 0}})
+
+    find_path(queue, end_coord, distance_map, graph)
+  end
+
+  def find_path([{_, end_coord} | _rest_queue], end_coord, distance_map, _graph) do
+    distance_map[end_coord]
+  end
+
+  def find_path([{cur_distance, {cur_x, cur_y}} | rest_queue], end_coord, distance_map, graph) do
+    {next_distance_map, next_queue} =
+      for {dx, dy} <- @directions,
+          {nx, ny} = {cur_x + dx, cur_y + dy},
+          is_map_key(graph, {nx, ny}),
+          next_distance = cur_distance + graph[{nx, ny}],
+          next_distance < Map.get(distance_map, {nx, ny}, :infinity),
+          reduce: {distance_map, rest_queue} do
+        {map, nq} ->
+          next_map = Map.put(map, {nx, ny}, next_distance)
+          next_queue = PQ.add(nq, {next_distance, {nx, ny}})
+          {next_map, next_queue}
+      end
+
+    find_path(next_queue, end_coord, next_distance_map, graph)
+  end
+end
+```
+
+```elixir
+coord_map =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.with_index()
+  |> Enum.flat_map(fn {line, y} ->
+    line
+    |> String.to_charlist()
+    |> Enum.with_index(0)
+    |> Enum.map(fn {v, x} -> {{x, y}, v - ?0} end)
+  end)
+  |> Enum.into(%{})
+
+start_point = {0, 0}
+end_point = Enum.max(coord_map) |> elem(0)
+
+shortest_path_map = %{start_point => 0}
+
+queue = [start_point]
+
+###
+
+# coord_map
+PathFinder.shortest(coord_map, start_point, end_point)
+```
+
+## Part 2
+
+```elixir
+defmodule PathFinder2.Heap do
+  @directions [{0, 1}, {1, 0}, {-1, 0}, {0, -1}]
+
+  def find_path(heap, end_coord, shortest_path_map, coord_finder) do
+    case Heap.empty?(heap) do
+      false ->
+        {cur_risk, {cur_x, cur_y}} = Heap.root(heap)
+        heap = Heap.pop(heap)
+
+        unless {cur_x, cur_y} == end_coord do
+          {next_shortest_path_map, next_heap} =
+            for {dx, dy} <- @directions,
+                risk = coord_finder.({cur_x + dx, cur_y + dy}),
+                reduce: {shortest_path_map, heap} do
+              {map, nq} ->
+                {nx, ny} = {cur_x + dx, cur_y + dy}
+
+                if map[{nx, ny}] > cur_risk + risk do
+                  {map |> Map.put({nx, ny}, cur_risk + risk),
+                   nq |> Heap.push({cur_risk + risk, {nx, ny}})}
+                else
+                  {map, nq}
+                end
+            end
+
+          find_path(next_heap, end_coord, next_shortest_path_map, coord_finder)
+        else
+          find_path(heap, end_coord, shortest_path_map, coord_finder)
+        end
+
+      true ->
+        shortest_path_map[end_coord]
+    end
+
+    # IO.inspect(target, label: "#{cur_x}, #{cur_y}")
+    # find_path(rest_queue ++ List.wrap(target), end_coord, next_shortest_path_map, coord_finder)
+  end
+end
+```
+
+```elixir
+defmodule PathFinder2.PQ do
+  @directions [{0, 1}, {1, 0}, {-1, 0}, {0, -1}]
+
+  def shortest(coord_finder, start_coord, end_coord) do
+    queue = PQ.new()
+    distance_map = %{start_coord => 0}
+    queue = PQ.add(queue, {0, {0, 0}})
+
+    find_path(queue, end_coord, distance_map, coord_finder)
+  end
+
+  def find_path([{_, end_coord} | _rest_queue], end_coord, distance_map, _graph) do
+    distance_map[end_coord]
+  end
+
+  def find_path(
+        [{cur_distance, {cur_x, cur_y}} | rest_queue],
+        end_coord,
+        distance_map,
+        coord_finder
+      ) do
+    {next_distance_map, next_queue} =
+      for {dx, dy} <- @directions,
+          {nx, ny} = {cur_x + dx, cur_y + dy},
+          next_risk = coord_finder.({nx, ny}),
+          not is_nil(next_risk),
+          next_distance = cur_distance + next_risk,
+          next_distance < Map.get(distance_map, {nx, ny}, :infinity),
+          reduce: {distance_map, rest_queue} do
+        {map, nq} ->
+          next_map = Map.put(map, {nx, ny}, next_distance)
+          next_queue = PQ.add(nq, {next_distance, {nx, ny}})
+          {next_map, next_queue}
+      end
+
+    find_path(next_queue, end_coord, next_distance_map, coord_finder)
+  end
+end
+```
+
+```elixir
+coord_map =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.with_index()
+  |> Enum.flat_map(fn {line, y} ->
+    line
+    |> String.to_charlist()
+    |> Enum.with_index(0)
+    |> Enum.map(&{{elem(&1, 1), y}, elem(&1, 0) - ?0})
+  end)
+  |> Enum.into(%{})
+
+start_point = {0, 0}
+{max_x, max_y} = Enum.max(coord_map) |> elem(0)
+length_x = max_x + 1
+length_y = max_y + 1
+
+coord_finder = fn {x, y} ->
+  if x >= 0 and y >= 0 and x < length_x * 5 and y < length_y * 5 do
+    {ox, xp} = {rem(x, length_x), div(x, length_x)}
+
+    {oy, yp} = {rem(y, length_y), div(y, length_y)}
+
+    rem(coord_map[{ox, oy}] + xp + yp - 1, 9) + 1
+  else
+    nil
+  end
+end
+
+PathFinder2.PQ.shortest(coord_finder, {0, 0}, {length_x * 5 - 1, length_y * 5 - 1})
+
+# {np, nq} = PathFinder2.find_path(nq, end_point, np, coord_finder)
+```
