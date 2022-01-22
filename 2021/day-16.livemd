@@ -1,0 +1,158 @@
+# aoc 2021 day 16
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+## Part 1
+
+```elixir
+defmodule Translator do
+  def translate([v1, v2, v3, ?1, ?0, ?0 | rest] = _packets) do
+    version = [v1, v2, v3] |> List.to_integer(2)
+
+    {number, rest} = literal(rest)
+
+    {%{
+       version: version,
+       type: :literal,
+       number: number
+     }, rest}
+  end
+
+  def translate([v1, v2, v3, t1, t2, t3, i | rest] = _packets) do
+    # IO.inspect(packets)
+    version = [v1, v2, v3] |> List.to_integer(2)
+    type = [t1, t2, t3] |> List.to_integer(2)
+
+    case i do
+      ?0 ->
+        {len_of_sub_bin, rest} = Enum.split(rest, 15)
+        len_of_sub = List.to_integer(len_of_sub_bin, 2)
+        {sub_packets, rest} = Enum.split(rest, len_of_sub)
+        {sp, _} = sub_packets(sub_packets)
+        {%{version: version, type: type, length_type: 0, sub_packets: sp}, rest}
+
+      ?1 ->
+        {cnt_of_sub_bin, rest} = Enum.split(rest, 11)
+        cnt_of_sub = List.to_integer(cnt_of_sub_bin, 2)
+        {sp, rest} = sub_packets(rest, cnt_of_sub)
+        {%{version: version, type: type, length_type: 1, sub_packets: sp}, rest}
+    end
+  end
+
+  defp sub_packets(packets, cnt \\ nil) do
+    Stream.iterate(0, &(&1 + 1))
+    |> Enum.reduce_while({[], packets}, fn
+      _, {acc, []} ->
+        {:halt, {acc |> Enum.reverse(), []}}
+
+      ^cnt, {acc, remain} ->
+        {:halt, {acc |> Enum.reverse(), remain}}
+
+      _idx, {acc, remains} ->
+        # IO.inspect(remains, label: idx)
+        {data, rest} = translate(remains)
+        {:cont, {[data | acc], rest}}
+    end)
+  end
+
+  def literal(packets, bits \\ [], bit_count \\ 6)
+
+  def literal([?0 | _] = packets, bits, bit_count) do
+    {last_group, rest} = Enum.split(packets, 5)
+    number = last_group |> tl() |> then(&Enum.concat(bits, &1)) |> List.to_integer(2)
+    # {number, Enum.drop(rest, rem(bit_count + 5, 4) - 1)}
+    {number, rest}
+  end
+
+  def literal([?1 | _] = packets, bits, bit_count) do
+    {group, rest} = Enum.split(packets, 5)
+    acc = group |> tl() |> then(&Enum.concat(bits, &1))
+    literal(rest, acc, bit_count + 5)
+  end
+end
+
+defmodule VersionParser do
+  def versions(%{sub_packets: sub_packets, version: version}) do
+    sub_versions = sub_packets |> Enum.map(&versions/1) |> Enum.sum()
+    sub_versions + version
+  end
+
+  def versions(%{version: version}), do: version
+end
+
+defmodule Operator do
+  def calculate(%{sub_packets: sub_packets, type: type}) do
+    case type do
+      0 ->
+        sub_packets |> Enum.map(&calculate/1) |> Enum.sum()
+
+      1 ->
+        sub_packets |> Enum.map(&calculate/1) |> Enum.product()
+
+      2 ->
+        sub_packets |> Enum.map(&calculate/1) |> Enum.min()
+
+      3 ->
+        sub_packets |> Enum.map(&calculate/1) |> Enum.max()
+
+      5 ->
+        [p1, p2] = sub_packets |> Enum.map(&calculate/1)
+        if p1 > p2, do: 1, else: 0
+
+      6 ->
+        [p1, p2] = sub_packets |> Enum.map(&calculate/1)
+        if p1 < p2, do: 1, else: 0
+
+      7 ->
+        [p1, p2] = sub_packets |> Enum.map(&calculate/1)
+        if p1 == p2, do: 1, else: 0
+    end
+  end
+
+  def calculate(%{number: number}), do: number
+end
+```
+
+
+
+```elixir
+# input = "D2FE28"
+# input = "38006F45291200"
+# input = "EE00D40C823060"
+
+packets =
+  input
+  |> Kino.Input.read()
+  |> Base.decode16!()
+  |> :binary.bin_to_list()
+  |> Enum.flat_map(fn num ->
+    x = Integer.to_charlist(num, 2)
+    l = length(x)
+    List.duplicate(?0, max(0, 8 - l)) ++ x
+  end)
+
+# |> IO.inspect()
+
+# length(packets)
+{data, _} = Translator.translate(packets)
+
+IO.inspect(data)
+
+VersionParser.versions(data)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Operator.calculate(data)
+```
