@@ -1,3 +1,5 @@
+<!-- vim: set syntax=markdown: -->
+
 # Advent of Code
 
 ## 2021
@@ -17,6 +19,7 @@
 * [Day 13](2021/day-13.livemd)
 * [Day 14](2021/day-14.livemd)
 * [Day 15](2021/day-15.livemd)
+* [Day 16](2021/day-16.livemd)
 
 ```elixir
 

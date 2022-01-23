@@ -1,13 +1,15 @@
+<!-- vim: set syntax=markdown: -->
+
 # aoc 2021 day 16
 
 ## Setup
 
 ```elixir
-Mix.install([{:kino, "~> 0.4.1"}])
+Mix.install([{:kino, "~> 0.5.0"}])
 ```
 
 ```elixir
-input = Kino.Input.textarea("input")
+input = Kino.Input.text("input")
 ```
 
 ## Part 1
@@ -63,19 +65,19 @@ defmodule Translator do
     end)
   end
 
-  def literal(packets, bits \\ [], bit_count \\ 6)
+  def literal(packets, bits \\ [])
 
-  def literal([?0 | _] = packets, bits, bit_count) do
+  def literal([?0 | _] = packets, bits) do
     {last_group, rest} = Enum.split(packets, 5)
     number = last_group |> tl() |> then(&Enum.concat(bits, &1)) |> List.to_integer(2)
     # {number, Enum.drop(rest, rem(bit_count + 5, 4) - 1)}
     {number, rest}
   end
 
-  def literal([?1 | _] = packets, bits, bit_count) do
+  def literal([?1 | _] = packets, bits) do
     {group, rest} = Enum.split(packets, 5)
     acc = group |> tl() |> then(&Enum.concat(bits, &1))
-    literal(rest, acc, bit_count + 5)
+    literal(rest, acc)
   end
 end
 
@@ -121,8 +123,6 @@ defmodule Operator do
 end
 ```
 
-
-
 ```elixir
 # input = "D2FE28"
 # input = "38006F45291200"
@@ -151,8 +151,83 @@ VersionParser.versions(data)
 
 ## Part 2
 
-<!-- livebook:{"reevaluate_automatically":true} -->
-
 ```elixir
 Operator.calculate(data)
+```
+
+
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## After watching jose's streaming
+
+```elixir
+defmodule Parser do
+  import Bitwise
+
+  def decode(packet) do
+    {_, [result]} =
+      packet
+      |> Base.decode16!()
+      |> decode_type([])
+
+    result
+  end
+
+  defp decode_type(<<_version::3, 4::3, literals::bits>>, values),
+    do: decode_literal(literals, 0, values)
+
+  defp decode_type(
+         <<_version::3, type::3, 0::1, len::15, sub_packets::size(len)-bits, _rest::bits>>,
+         values
+       ) do
+    values = decode_len_type(sub_packets, values)
+    {"", [handle_operator(type, values)]}
+  end
+
+  defp decode_type(<<_version::3, type::3, 1::1, count::11, rest::bits>>, values) do
+    {rest, values} = decode_count_type(rest, count, values)
+    {rest, [handle_operator(type, values)]}
+  end
+
+  defp decode_literal(<<1::1, part::4, rest::bits>>, acc, values) do
+    decode_literal(rest, (acc <<< 4) + part, values)
+  end
+
+  defp decode_literal(<<0::1, part::4, rest::bits>>, acc, values) do
+    {rest, [(acc <<< 4) + part | values]}
+  end
+
+  defp decode_len_type("", values), do: values
+
+  defp decode_len_type(sub_packets, values) do
+    {rest, values} = decode_type(sub_packets, values)
+    decode_len_type(rest, values)
+  end
+
+  defp decode_count_type(rest, 0, values), do: {rest, values}
+
+  defp decode_count_type(sub_packets, count, values) do
+    {rest, values} = decode_type(sub_packets, values)
+    decode_count_type(rest, count - 1, values)
+  end
+
+  defp handle_operator(0, values), do: Enum.sum(values)
+  defp handle_operator(1, values), do: Enum.product(values)
+  defp handle_operator(2, values), do: Enum.min(values)
+  defp handle_operator(3, values), do: Enum.max(values)
+  defp handle_operator(5, [p1, p2]) when p1 > p2, do: 1
+  defp handle_operator(6, [p1, p2]) when p1 < p2, do: 1
+  defp handle_operator(7, [p1, p2]) when p1 == p2, do: 1
+  defp handle_operator(_, _), do: 0
+end
+```
+
+```elixir
+Parser.decode("D2FE28") |> IO.inspect()
+Parser.decode("38006F45291200") |> IO.inspect()
+Parser.decode("C200B40A82") |> IO.inspect()
+Parser.decode("04005AC33890") |> IO.inspect()
+Parser.decode("CE00C43D881120") |> IO.inspect()
+Parser.decode("D8005AC2A8F0") |> IO.inspect()
 ```

@@ -1,3 +1,5 @@
+<!-- vim: set syntax=markdown: -->
+
 # aoc 2021 day 15
 
 ## Setup

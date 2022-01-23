@@ -1,3 +1,5 @@
+<!-- vim: set syntax=markdown: -->
+
 # aoc2021-d1
 
 ## Setup
