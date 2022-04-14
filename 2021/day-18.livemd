@@ -1,0 +1,239 @@
+# aoc 2021 day 18
+
+## Part 1
+
+leftmost rightmost 저장
+
+```elixir
+defmodule TreeReducer do
+  def reduce(tree) do
+  end
+
+  defp traverse([left, right], tree, depth, ord) do
+    case traverse(left, tree, depth + 1, ord) do
+      {:expolded, tree} ->
+        {:exploded, tree}
+
+      last_ord ->
+        traverse(right, tree, depth + 1, last_ord)
+    end
+  end
+
+  defp travese([left, right], tree, 4, ord) do
+    explode(tree, left, right, ord)
+  end
+
+  defp traverse(_, _tree, _depth, ord), do: ord + 1
+
+  defp explode(tree, left, right, ord) do
+  end
+end
+```
+
+```elixir
+ceil(5 / 2)
+floor(5 / 2)
+
+input = """
+[[[0,[4,5]],[0,0]],[[[4,5],[2,6]],[9,5]]]
+[7,[[[3,7],[4,3]],[[6,3],[8,8]]]]
+"""
+
+"""
+[[2,[[0,8],[3,4]]],[[[6,7],1],[7,[1,6]]]]
+[[[[2,4],7],[6,[0,5]]],[[[6,8],[2,8]],[[2,1],[4,5]]]]
+[7,[5,[[3,8],[1,4]]]]
+[[2,[2,2]],[8,[8,1]]]
+[2,9]
+[1,[[[9,3],9],[[9,0],[0,7]]]]
+[[[5,[7,4]],7],1]
+[[[[4,2],2],6],[8,7]]
+"""
+
+input2 = """
+[1,1]
+[2,2]
+[3,3]
+[4,4]
+[5,5]
+[6,6]
+"""
+
+input
+|> String.split("\n", trim: true)
+|> Enum.map(fn line ->
+  {stack, _, _} =
+    for <<s <- line>>, s != ?,, reduce: {[], 0, :left} do
+      {acc, depth, pos} ->
+        case s do
+          ?[ ->
+            {acc, depth + 1, :left}
+
+          ?] ->
+            {acc, depth - 1, pos}
+
+          n ->
+            {[{n - ?0, depth} | acc], depth, :right}
+        end
+    end
+
+  stack
+  |> Enum.reverse()
+end)
+|> Enum.reduce(fn right, left ->
+  (left ++ right)
+  |> Enum.map(fn {a, d} -> {a, d + 1} end)
+  |> IO.inspect(label: "before")
+  |> Reducer.reduce()
+  |> IO.inspect()
+end)
+|> Calculator.calculate()
+
+# |> Enum.map(&(Code.eval_string(&1) |> elem(0)))
+# |> Enum.reduce(fn right, left ->
+#   addtion = [left, right]
+# end)
+```
+
+```elixir
+[
+  [
+    [
+      [4, 0],
+      [5, 4]
+    ],
+    [
+      [7, 7],
+      [6, 0]
+    ]
+  ],
+  [
+    [
+      [6, 6],
+      [5, 5]
+    ],
+    [
+      [0, 6],
+      [6, 7]
+    ]
+  ]
+]
+```
+
+```elixir
+addtion = '[[[[[4,3],4],4],[7,[[8,4],9]]],[1,1]]'
+
+defmodule Reducer do
+  def reduce(addition) do
+    reduce(addition, [])
+  end
+
+  # # 상위가 왼쪽인 경우
+  # defp reduce([{upper, 4}, {left, 5}, {right, 5} | rest], stack) do
+  #   IO.inspect(stack, label: "left")
+  #   rest = explode_to_right(rest, right)
+  #   upper = upper + left
+
+  #   if upper >= 10 do
+  #     reduce([{floor(upper / 2), 5}, {ceil(upper / 2), 5}, {0, 4} | rest], stack)
+  #   else
+  #     reduce(rest, [{0, 4}, {upper, 4} | stack])
+  #   end
+  # end
+
+  # # 오른쪽인 경우
+  # defp reduce([{left, 5}, {right, 5}, {upper, 4} | rest], stack) do
+  #   IO.inspect(stack, label: "right")
+  #   stack = explode_to_left(stack, left)
+  #   upper = upper + right
+
+  #   if upper >= 10 do
+  #     reduce([{0, 4}, {floor(upper / 2), 5}, {ceil(upper / 2), 5} | rest], stack)
+  #   else
+  #     reduce(rest, [{upper, 4}, {0, 4} | stack])
+  #   end
+  # end
+
+  defp reduce([{splitter, depth} | rest] = a, stack) when splitter >= 10 do
+    IO.inspect(a, label: "split")
+    left = floor(splitter / 2)
+    right = ceil(splitter / 2)
+    reduce([{left, depth + 1}, {right, depth + 1} | rest], stack)
+  end
+
+  defp reduce([{left, depth}, {right, depth} | rest] = a, stack) when depth >= 5 do
+    IO.inspect(a, label: "rest")
+    IO.inspect(stack |> Enum.reverse(), label: "stack")
+
+    {prev, stack} = explode_to(stack, left)
+    {next, rest} = explode_to(rest, right)
+
+    reduce(prev ++ [{0, depth - 1}] ++ next ++ rest, stack)
+  end
+
+  defp reduce([one | rest], stack), do: reduce(rest, [one | stack])
+  defp reduce([], stack), do: Enum.reverse(stack)
+
+  defp explode_to([{target, depth} | rest], num) do
+    result = target + num
+
+    {[{result, depth}], rest}
+  end
+
+  defp explode_to([], _num), do: {[], []}
+
+  defp split_number(number) do
+    {floor(number / 2), ceil(number / 2)}
+  end
+end
+```
+
+```elixir
+line = "[[[[[4,3],4],4],[7,[[8,4],9]]],[1,1]]"
+line = "[[[[0,[4,5]],[0,0]],[[[4,5],[2,6]],[9,5]]],[7,[[[3,7],[4,3]],[[6,3],[8,8]]]]]"
+# line = "[[[[8,7],[7,7]],[[8,6],[7,7]]],[[[0,7],[6,6]],[8,7]]]"
+
+{stack, _, _} =
+  for <<s <- line>>, s != ?,, reduce: {[], 0, :left} do
+    {acc, depth, pos} ->
+      case s do
+        ?[ ->
+          {acc, depth + 1, :left}
+
+        ?] ->
+          {acc, depth - 1, pos}
+
+        n ->
+          {[{n - ?0, depth} | acc], depth, :right}
+      end
+  end
+
+stack
+|> Enum.reverse()
+|> Reducer.reduce()
+|> Calculator.calculate()
+```
+
+```elixir
+defmodule Calculator do
+  def calculate(exp) do
+    4..1
+    |> Enum.reduce(exp, fn i, exp ->
+      calculate(exp, i)
+      # |> IO.inspect(label: "cal")
+    end)
+  end
+
+  defp calculate(exp, depth) do
+    exp
+    |> Enum.reduce([], fn
+      {r, ^depth}, [{l, ^depth} | rest] ->
+        [{r * 2 + l * 3, depth - 1} | rest]
+
+      right, acc ->
+        [right | acc]
+    end)
+    |> Enum.reverse()
+  end
+end
+```

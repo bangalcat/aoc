@@ -1,0 +1,69 @@
+# aoc 2019 day 6
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.5.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+adj_map =
+  input
+  |> Kino.Input.read()
+  |> String.split([")", "\n"], trim: true)
+  |> Enum.chunk_every(2)
+  |> Enum.reduce(%{}, fn [a, b], adj_map ->
+    adj_map
+    |> Map.put(b, a)
+  end)
+```
+
+## Part 1
+
+```elixir
+defmodule Part1 do
+  def orbits(adj_map) do
+    Map.keys(adj_map)
+    |> Enum.map(&orbits(&1, adj_map, 0))
+    |> Enum.sum()
+  end
+
+  defp orbits(nil, _adj_map, orbit), do: orbit - 1
+
+  defp orbits(key, adj_map, orbit) do
+    orbits(adj_map[key], adj_map, orbit + 1)
+  end
+end
+```
+
+```elixir
+adj_map
+|> Part1.orbits()
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  def transfer_orbits(adj_map, source, dest) do
+    source_path = orbit_paths(adj_map, source, [])
+    dest_path = orbit_paths(adj_map, dest, [])
+    [eq: _eq, del: del, ins: ins] = List.myers_difference(source_path, dest_path)
+    length(del) + length(ins)
+  end
+
+  def orbit_paths(_adj_map, nil, paths), do: tl(paths)
+
+  def orbit_paths(adj_map, x, paths) do
+    orbit_paths(adj_map, adj_map[x], [adj_map[x] | paths])
+  end
+end
+```
+
+```elixir
+Part2.transfer_orbits(adj_map, "YOU", "SAN")
+```

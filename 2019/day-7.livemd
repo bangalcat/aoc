@@ -1,0 +1,289 @@
+# aoc 2019 day 7
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.5.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+init_state =
+  input
+  |> Kino.Input.read()
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.with_index()
+  |> Map.new(fn {v, k} -> {k, v} end)
+```
+
+## Computer
+
+```elixir
+defmodule Computer.Operator do
+  defstruct [:params, :op_code]
+
+  def new(instruction) do
+    op_code = rem(instruction, 100)
+    params = get_parameters(instruction)
+
+    %__MODULE__{
+      op_code: op_code(op_code),
+      params: params
+    }
+  end
+
+  defp get_parameters(instruction) do
+    {
+      instruction |> div(100) |> rem(10),
+      instruction |> div(1_000) |> rem(10)
+    }
+  end
+
+  defp op_code(1), do: :add
+  defp op_code(2), do: :mul
+  defp op_code(3), do: :read
+  defp op_code(4), do: :print
+  defp op_code(5), do: :jump_neq
+  defp op_code(6), do: :jump_eq
+  defp op_code(7), do: :comp_lt
+  defp op_code(8), do: :comp_eq
+  defp op_code(99), do: :halt
+end
+```
+
+```elixir
+defmodule Computer.State do
+  @inc_mode 1
+  @addr_mode 0
+
+  defstruct state: %{}, inputs: [], outputs: [], pointer: 0
+
+  def new(data: %__MODULE__{state: map, inputs: prev_inputs, pointer: pointer}, inputs: inputs),
+    do: %__MODULE__{state: map, inputs: prev_inputs ++ inputs, pointer: pointer}
+
+  def new(data: map, inputs: inputs) do
+    %__MODULE__{state: map, inputs: inputs}
+  end
+
+  def get_instruction(%__MODULE__{state: map, pointer: pointer}), do: map[pointer]
+
+  def get_value(%__MODULE__{state: map}, position, @inc_mode), do: map[position]
+  def get_value(%__MODULE__{state: map}, position, @addr_mode), do: map[map[position]]
+
+  def put_value(%__MODULE__{state: map} = s, position, value),
+    do: %{s | state: Map.put(map, map[position], value)}
+
+  def append_output(state, output), do: %{state | outputs: [output | state.outputs]}
+
+  def move_pointer(state, next_ptr), do: %{state | pointer: next_ptr}
+
+  def pop_input(%__MODULE__{inputs: [input | rest]} = state), do: {input, %{state | inputs: rest}}
+  def put_inputs(state, inputs), do: %{state | inputs: state.inputs ++ inputs}
+end
+```
+
+```elixir
+
+```
+
+```elixir
+defmodule Computer do
+  alias Computer.{State, Operator}
+
+  def init_state(data, inputs \\ []) do
+    State.new(data: data, inputs: inputs)
+  end
+
+  def process(state, inputs) do
+    State.new(data: state, inputs: inputs)
+    |> compute_until_output()
+  end
+
+  def compute(state) do
+    State.get_instruction(state)
+    |> Operator.new()
+    |> case do
+      %Operator{op_code: :halt} ->
+        state
+
+      op ->
+        move_operation(op, state)
+        |> compute()
+    end
+  end
+
+  def compute_until_output(state) do
+    State.get_instruction(state)
+    |> Operator.new()
+    |> case do
+      %Operator{op_code: :halt} ->
+        {state, :halt}
+
+      op ->
+        move_operation(op, state)
+        |> case do
+          %State{outputs: outputs} = res_state when outputs != [] ->
+            {res_state, outputs}
+
+          state ->
+            compute_until_output(state)
+        end
+    end
+  end
+
+  defp move_operation(%Operator{op_code: op_code, params: {p1, p2}}, state)
+       when op_code in [:add, :mul] do
+    v1 = State.get_value(state, state.pointer + 1, p1)
+    v2 = State.get_value(state, state.pointer + 2, p2)
+    res = calc(op_code).(v1, v2)
+
+    next_pointer = state.pointer + 4
+
+    State.put_value(state, state.pointer + 3, res)
+    |> State.move_pointer(next_pointer)
+  end
+
+  defp move_operation(%Operator{op_code: :read}, state) do
+    {input, state} = State.pop_input(state)
+
+    next_pointer = state.pointer + 2
+
+    State.put_value(state, state.pointer + 1, input)
+    |> State.move_pointer(next_pointer)
+  end
+
+  defp move_operation(%Operator{op_code: :print, params: {p1, _}}, state) do
+    output = State.get_value(state, state.pointer + 1, p1)
+    next_pointer = state.pointer + 2
+
+    State.append_output(state, output)
+    |> State.move_pointer(next_pointer)
+  end
+
+  defp move_operation(%Operator{op_code: :jump_neq, params: {p1, p2}}, state) do
+    predicate = State.get_value(state, state.pointer + 1, p1)
+    goto = State.get_value(state, state.pointer + 2, p2)
+
+    next_pointer = if predicate != 0, do: goto, else: state.pointer + 3
+    State.move_pointer(state, next_pointer)
+  end
+
+  defp move_operation(%Operator{op_code: :jump_eq, params: {p1, p2}}, state) do
+    predicate = State.get_value(state, state.pointer + 1, p1)
+    goto = State.get_value(state, state.pointer + 2, p2)
+
+    next_pointer = if predicate == 0, do: goto, else: state.pointer + 3
+    State.move_pointer(state, next_pointer)
+  end
+
+  defp move_operation(%Operator{op_code: :comp_lt, params: {p1, p2}}, state) do
+    v1 = State.get_value(state, state.pointer + 1, p1)
+    v2 = State.get_value(state, state.pointer + 2, p2)
+    value = if v1 < v2, do: 1, else: 0
+    next_pointer = state.pointer + 4
+
+    State.put_value(state, state.pointer + 3, value)
+    |> State.move_pointer(next_pointer)
+  end
+
+  defp move_operation(%Operator{op_code: :comp_eq, params: {p1, p2}}, state) do
+    v1 = State.get_value(state, state.pointer + 1, p1)
+    v2 = State.get_value(state, state.pointer + 2, p2)
+    value = if v1 == v2, do: 1, else: 0
+    next_pointer = state.pointer + 4
+
+    State.put_value(state, state.pointer + 3, value)
+    |> State.move_pointer(next_pointer)
+  end
+
+  defp calc(:add), do: &Kernel.+/2
+  defp calc(:mul), do: &Kernel.*/2
+end
+```
+
+## Part 1
+
+```elixir
+defmodule Part1.Solver do
+  def solve(init_data) do
+    permute(0..4)
+    |> Enum.map(fn phases ->
+      phases
+      |> Enum.reduce(init_data, fn phase, state ->
+        output = state |> Map.get(:outputs, [0]) |> List.first()
+
+        Computer.init_state(init_data, [phase, output])
+        |> Computer.compute()
+      end)
+    end)
+    |> Enum.max()
+  end
+
+  def permute(range) do
+    permute(Enum.to_list(range), Range.size(range), [], [])
+  end
+
+  defp permute([], _len, acc, total), do: [acc | total]
+
+  defp permute(list, len, acc, total) do
+    for i <- 0..(len - 1), reduce: total do
+      tt ->
+        {n, rest} = List.pop_at(list, i)
+        permute(rest, len - 1, [n | acc], tt)
+    end
+  end
+end
+```
+
+```elixir
+Part1.Solver.solve(init_state)
+```
+
+## Part 2
+
+```elixir
+defmodule Part2.Solver do
+  def solve(init_data) do
+    permute(5..9)
+    |> Enum.map(fn phases ->
+      computer_map = for p <- phases, into: %{}, do: {p, Computer.init_state(init_data, [p])}
+
+      phases
+      |> Stream.cycle()
+      # |> Enum.take(300)
+      |> Enum.reduce_while({computer_map, [0]}, fn
+        phase, {cpt_map, :halt} ->
+          {:halt, cpt_map[List.last(phases)].outputs |> List.first()}
+
+        phase, {cpt_map, outputs} ->
+          state = cpt_map[phase]
+          {state, outputs} = Computer.process(state, outputs)
+          {:cont, {cpt_map |> Map.put(phase, state), outputs}}
+      end)
+    end)
+    |> Enum.max()
+  end
+
+  def permute(range) do
+    permute(Enum.to_list(range), Range.size(range), [], [])
+  end
+
+  defp permute([], _len, acc, total), do: [acc | total]
+
+  defp permute(list, len, acc, total) do
+    for i <- 0..(len - 1), reduce: total do
+      tt ->
+        {n, rest} = List.pop_at(list, i)
+        permute(rest, len - 1, [n | acc], tt)
+    end
+  end
+end
+```
+
+```elixir
+Part2.Solver.solve(init_state)
+```

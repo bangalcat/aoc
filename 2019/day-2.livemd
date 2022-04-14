@@ -1,0 +1,137 @@
+# aoc 2019 day 2
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.5.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+## Part 1
+
+```elixir
+init_state =
+  input
+  |> Kino.Input.read()
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.with_index()
+  |> Map.new(fn {v, k} -> {k, v} end)
+  # |> IO.inspect()
+  |> Map.put(1, 12)
+  |> Map.put(2, 2)
+```
+
+```elixir
+max_step = init_state |> Map.keys() |> Enum.max()
+
+0..max_step
+|> Enum.reduce_while(init_state, fn
+  _step, {0, state} ->
+    # IO.inspect(state, label: step)
+    {:cont, state}
+
+  _step, {skip, state} ->
+    # IO.inspect(state, label: step)
+    {:cont, {skip - 1, state}}
+
+  step, state ->
+    op = state[step]
+
+    case op do
+      99 ->
+        {:halt, state}
+
+      1 ->
+        # IO.inspect(state, label: step)
+        res = state[state[step + 1]] + state[state[step + 2]]
+        {:cont, {2, Map.put(state, state[step + 3], res)}}
+
+      2 ->
+        res = state[state[step + 1]] * state[state[step + 2]]
+        {:cont, {2, Map.put(state, state[step + 3], res)}}
+    end
+end)
+|> Map.get(0)
+```
+
+## Part 2
+
+```elixir
+defmodule Computer do
+  def compute(init_state, noun, verb, max_step) do
+    init_state =
+      init_state
+      |> Map.put(1, noun)
+      |> Map.put(2, verb)
+
+    0..max_step
+    |> Enum.reduce_while(init_state, fn
+      step, {0, state} ->
+        # IO.inspect(state, label: step)
+        {:cont, state}
+
+      step, {skip, state} ->
+        # IO.inspect(state, label: step)
+        {:cont, {skip - 1, state}}
+
+      step, state ->
+        op = state[step]
+
+        case op do
+          99 ->
+            {:halt, state}
+
+          1 ->
+            # IO.inspect(state, label: step)
+            res = state[state[step + 1]] + state[state[step + 2]]
+            {:cont, {2, Map.put(state, state[step + 3], res)}}
+
+          2 ->
+            res = state[state[step + 1]] * state[state[step + 2]]
+            {:cont, {2, Map.put(state, state[step + 3], res)}}
+
+          other ->
+            # IO.inspect(other, label: step)
+            {:halt, state}
+        end
+    end)
+  end
+end
+
+max_step = init_state |> Map.keys() |> Enum.max()
+
+for noun <- 0..99,
+    verb <- 0..99,
+    state = Computer.compute(init_state, noun, verb, max_step),
+    state[0] == 19_690_720 do
+  noun * 100 + verb
+end
+```
+
+```elixir
+
+
+
+[h |  [ | [ | [ | [ | [ | [ | [ | [ | [ | [[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]
+
+map = %{1 => 3, }
+:maps
+hash array trie map 
+
+
+List.update_at()
+
+Node list
+
+header.next = list
+
+list.prev = header
+
+class {
+  Node next = null;
+}
+```

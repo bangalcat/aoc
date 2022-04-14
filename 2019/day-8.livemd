@@ -1,0 +1,77 @@
+# aoc 2019 - day 8
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.5.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+## Part 1
+
+```elixir
+input = input |> Kino.Input.read()
+
+for <<part::bytes-150 <- input>> do
+  part
+  |> String.to_charlist()
+  |> Enum.frequencies()
+end
+|> Enum.min_by(& &1[?0])
+|> then(&(&1[?1] * &1[?2]))
+```
+
+## Part 2
+
+```elixir
+data =
+  for <<part::bytes-150 <- input>>, reduce: [] do
+    [] ->
+      String.to_charlist(part)
+
+    acc ->
+      part
+      |> String.to_charlist()
+      |> Enum.zip(acc)
+      |> Enum.map(fn
+        {b, ?2} -> b
+        {_, f} -> f
+      end)
+  end
+  |> Enum.chunk_every(25)
+
+# |> Enum.join("\n")
+# |> IO.puts()
+```
+
+```elixir
+defmodule Printer do
+  def print(data) do
+    contents =
+      for line <- data do
+        line
+        |> List.insert_at(0, ?0)
+        |> List.insert_at(-1, ?0)
+        |> Enum.map(&color(type(&1), " "))
+
+        # |> IO.iodata_to_binary()
+      end
+      |> Enum.intersperse("\n")
+
+    IO.puts(contents)
+  end
+
+  defp color(color, string) do
+    IO.ANSI.format([:black_background, color, string])
+    |> IO.iodata_to_binary()
+  end
+
+  defp type(?0), do: :black
+  defp type(_), do: [:white_background]
+end
+
+Printer.print(data)
+```

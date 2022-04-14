@@ -1,0 +1,179 @@
+# aoc 2019 day 5
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.5.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+init_state =
+  input
+  |> Kino.Input.read()
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.with_index()
+  |> Map.new(fn {v, k} -> {k, v} end)
+```
+
+## Part 1
+
+```elixir
+defmodule Part1.Computer do
+  def compute(init_state, max_step, input) do
+    0..max_step
+    |> Enum.reduce_while({init_state, []}, fn
+      _step, {0, {state, outputs}} ->
+        {:cont, {state, outputs}}
+
+      _step, {skip, {state, outputs}} when is_integer(skip) ->
+        {:cont, {skip - 1, {state, outputs}}}
+
+      step, {state, outputs} ->
+        inst = state[step]
+        op = rem(inst, 100)
+        params = get_parameters(inst, op)
+
+        case op do
+          99 ->
+            {:halt, {state, outputs}}
+
+          1 ->
+            [p1, p2] = params
+            res = get_value(p1, state[step + 1], state) + get_value(p2, state[step + 2], state)
+            new_state = put_value(state, state[step + 3], res)
+            {:cont, {2, {new_state, outputs}}}
+
+          2 ->
+            [p1, p2] = params
+            res = get_value(p1, state[step + 1], state) * get_value(p2, state[step + 2], state)
+            new_state = put_value(state, state[step + 3], res)
+            {:cont, {2, {new_state, outputs}}}
+
+          3 ->
+            # IO.puts("value: #{state[step + 1]}")
+            new_state = put_value(state, state[step + 1], input)
+            {:cont, {0, {new_state, outputs}}}
+
+          4 ->
+            [param] = get_parameters(inst, op)
+            output = get_value(param, state[step + 1], state)
+
+            # IO.puts("output inst: #{inst} param: #{param}. pos: #{state[step + 1]} value: #{output}")
+            {:cont, {0, {state, [output | outputs]}}}
+        end
+    end)
+  end
+
+  defp get_parameters(instruction, op_code) when op_code in [1, 2, 5, 6, 7, 8] do
+    [
+      instruction |> div(100) |> rem(10),
+      instruction |> div(1_000) |> rem(10)
+    ]
+  end
+
+  defp get_parameters(instruction, op_code) when op_code in [3, 4] do
+    [instruction |> div(100) |> rem(10)]
+  end
+
+  defp get_parameters(_, _), do: []
+
+  defp get_value(1, value, _state), do: value
+  defp get_value(0, position, state), do: Map.get(state, position)
+
+  defp put_value(state, position, value), do: Map.put(state, position, value)
+end
+
+max_step = init_state |> Map.keys() |> Enum.max()
+
+Part1.Computer.compute(init_state, max_step, 1)
+```
+
+## Part 2
+
+```elixir
+defmodule Part2.Computer do
+  def compute(pointer, state, input, outputs \\ []) do
+    inst = state[pointer]
+    op = rem(inst, 100)
+    params = get_parameters(inst, op)
+    move_operation(op, pointer, params, state, input, outputs)
+  end
+
+  defp move_operation(op_code, pointer, [p1, p2] = _params, state, input, outputs)
+       when op_code in [1, 2] do
+    v1 = get_value(p1, state, pointer + 1)
+    v2 = get_value(p2, state, pointer + 2)
+    res = calc(op_code).(v1, v2)
+    new_state = put_value(state, pointer + 3, res)
+    next_pointer = pointer + 4
+    compute(next_pointer, new_state, input, outputs)
+  end
+
+  defp move_operation(3, pointer, [p1, _p2], state, input, outputs) do
+    new_state = put_value(state, pointer + 1, input)
+    next_pointer = pointer + 2
+    compute(next_pointer, new_state, input, outputs)
+  end
+
+  defp move_operation(4, pointer, [p1, _p2], state, input, outputs) do
+    next_pointer = pointer + 2
+    output = get_value(p1, state, pointer + 1)
+    compute(next_pointer, state, input, [output | outputs])
+  end
+
+  defp move_operation(5, pointer, [p1, p2], state, input, outputs) do
+    param = get_value(p1, state, pointer + 1)
+    next_pointer = if param != 0, do: get_value(p2, state, pointer + 2), else: pointer + 3
+    compute(next_pointer, state, input, outputs)
+  end
+
+  defp move_operation(6, pointer, [p1, p2], state, input, outputs) do
+    param = get_value(p1, state, pointer + 1)
+    next_pointer = if param == 0, do: get_value(p2, state, pointer + 2), else: pointer + 3
+    compute(next_pointer, state, input, outputs)
+  end
+
+  defp move_operation(7, pointer, [p1, p2], state, input, outputs) do
+    v1 = get_value(p1, state, pointer + 1)
+    v2 = get_value(p2, state, pointer + 2)
+    value = if v1 < v2, do: 1, else: 0
+    new_state = put_value(state, pointer + 3, value)
+    next_pointer = pointer + 4
+    compute(next_pointer, new_state, input, outputs)
+  end
+
+  defp move_operation(8, pointer, [p1, p2], state, input, outputs) do
+    v1 = get_value(p1, state, pointer + 1)
+    v2 = get_value(p2, state, pointer + 2)
+    value = if v1 == v2, do: 1, else: 0
+    new_state = put_value(state, pointer + 3, value)
+    next_pointer = pointer + 4
+    compute(next_pointer, new_state, input, outputs)
+  end
+
+  defp move_operation(99, _pointer, _, state, _, outputs), do: {state, outputs}
+
+  defp calc(1), do: &Kernel.+/2
+  defp calc(2), do: &Kernel.*/2
+
+  defp get_parameters(instruction, op_code) do
+    [
+      instruction |> div(100) |> rem(10),
+      instruction |> div(1_000) |> rem(10)
+    ]
+  end
+
+  defp get_value(1, state, position), do: state[position]
+  defp get_value(0, state, position), do: state[state[position]]
+
+  defp put_value(state, position, value), do: Map.put(state, state[position], value)
+end
+
+Part2.Computer.compute(0, init_state, 5)
+|> elem(1)
+```

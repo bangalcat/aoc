@@ -1,0 +1,174 @@
+# Aoc 2019 day 3
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.5.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+[line1, line2] =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.map(&String.split(&1, ",", trim: true))
+```
+
+## Part 1
+
+```elixir
+list = [[1, 2, 3, 4], [10, 20, 30, 40]]
+
+for i_list <- list,
+    j <- i_list,
+    i_list != [1, 2, 3, 4] do
+end
+```
+
+```elixir
+defmodule Part1 do
+  def mark_grid(line, grid, mark) do
+    for path <- line, reduce: {grid, {0, 0}} do
+      {grid, {x, y}} ->
+        case path do
+          "R" <> num ->
+            num = String.to_integer(num)
+
+            grid =
+              1..num
+              |> Enum.reduce(grid, &mark_one(&2, :x, {x, y}, mark, &1))
+
+            {grid, {x + num, y}}
+
+          "L" <> num ->
+            num = String.to_integer(num)
+
+            grid =
+              1..num
+              |> Enum.reduce(grid, &mark_one(&2, :x, {x, y}, mark, -&1))
+
+            {grid, {x - num, y}}
+
+          "U" <> num ->
+            num = String.to_integer(num)
+
+            grid =
+              1..num
+              |> Enum.reduce(grid, &mark_one(&2, :y, {x, y}, mark, &1))
+
+            {grid, {x, y + num}}
+
+          "D" <> num ->
+            num = String.to_integer(num)
+
+            grid =
+              1..num
+              |> Enum.reduce(grid, &mark_one(&2, :y, {x, y}, mark, -&1))
+
+            {grid, {x, y - num}}
+        end
+    end
+    |> elem(0)
+  end
+
+  defp mark_one(grid, :x, {x, y}, mark, n) do
+    Map.update(grid, {x + n, y}, mark, fn v ->
+      if v != mark, do: :intersect, else: mark
+    end)
+  end
+
+  defp mark_one(grid, :y, {x, y}, mark, n) do
+    Map.update(grid, {x, y + n}, mark, fn v ->
+      if v != mark, do: :intersect, else: mark
+    end)
+  end
+end
+```
+
+```elixir
+grid = Part1.mark_grid(line1, %{}, :mark1)
+grid = Part1.mark_grid(line2, grid, :mark2)
+
+grid
+|> Enum.filter(fn {_, v} -> v == :intersect end)
+|> Enum.map(fn {{x, y}, _} -> abs(x) + abs(y) end)
+|> Enum.min()
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  def mark_grid(line, grid, mark) do
+    for path <- line, reduce: {grid, {0, 0}, 0} do
+      {grid, {x, y}, step} ->
+        case path do
+          "R" <> num ->
+            num = String.to_integer(num)
+
+            grid =
+              1..num
+              |> Enum.reduce(grid, &mark_one(&2, :x, {x, y}, mark, &1, step))
+
+            {grid, {x + num, y}, step + num}
+
+          "L" <> num ->
+            num = String.to_integer(num)
+
+            grid =
+              1..num
+              |> Enum.reduce(grid, &mark_one(&2, :x, {x, y}, mark, -&1, step))
+
+            {grid, {x - num, y}, step + num}
+
+          "U" <> num ->
+            num = String.to_integer(num)
+
+            grid =
+              1..num
+              |> Enum.reduce(grid, &mark_one(&2, :y, {x, y}, mark, &1, step))
+
+            {grid, {x, y + num}, step + num}
+
+          "D" <> num ->
+            num = String.to_integer(num)
+
+            grid =
+              1..num
+              |> Enum.reduce(grid, &mark_one(&2, :y, {x, y}, mark, -&1, step))
+
+            {grid, {x, y - num}, step + num}
+        end
+    end
+    |> elem(0)
+  end
+
+  defp mark_one(grid, :x, {x, y}, mark, n, step) do
+    Map.update(grid, {x + n, y}, {mark, step + abs(n)}, fn {v, st} ->
+      if v != mark and v != :intersect, do: {:intersect, st + step + abs(n)}, else: {v, st}
+    end)
+  end
+
+  defp mark_one(grid, :y, {x, y}, mark, n, step) do
+    Map.update(grid, {x, y + n}, {mark, step + abs(n)}, fn {v, st} ->
+      if v != mark and v != :intersect, do: {:intersect, st + step + abs(n)}, else: {v, st}
+    end)
+  end
+end
+```
+
+```elixir
+grid = Part2.mark_grid(line1, %{}, :mark1)
+grid = Part2.mark_grid(line2, grid, :mark2)
+
+grid
+|> Enum.filter(fn {_, {v, step}} -> v == :intersect end)
+|> Enum.map(fn {_, {v, step}} -> step end)
+|> Enum.min()
+```
+
+

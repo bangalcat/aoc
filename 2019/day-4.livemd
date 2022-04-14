@@ -1,0 +1,86 @@
+# aoc 2019 day 4
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.5.0"}])
+```
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+## Part 1
+
+```elixir
+defmodule Part1 do
+  def solve(input) do
+    input
+    |> Kino.Input.read()
+    |> String.split("-", trim: true)
+    |> then(fn [left, right] -> String.to_integer(left)..String.to_integer(right) end)
+    |> Enum.count(fn num ->
+      num_str = to_string(num)
+
+      cond do
+        decrease?(num_str) -> false
+        non_double?(num_str) -> false
+        true -> true
+      end
+    end)
+  end
+
+  defp decrease?(<<h, b>>), do: h > b
+  defp decrease?(<<h, b, _rest::binary>>) when h > b, do: true
+  defp decrease?(<<_h, rest::binary>>), do: decrease?(rest)
+
+  defp non_double?(""), do: true
+  defp non_double?(<<h, h, _rest::binary>>), do: false
+  defp non_double?(<<_h, rest::binary>>), do: non_double?(rest)
+end
+```
+
+```elixir
+Part1.solve(input)
+```
+
+```elixir
+s = "12"
+
+<<h, b, rest::binary>> = s
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  def solve(input) do
+    input
+    |> Kino.Input.read()
+    |> String.split("-", trim: true)
+    |> then(fn [left, right] -> String.to_integer(left)..String.to_integer(right) end)
+    |> Enum.count(fn num ->
+      num_str = to_string(num)
+
+      cond do
+        decrease?(num_str) -> false
+        non_double?(num_str) -> false
+        true -> true
+      end
+    end)
+  end
+
+  defp decrease?(<<h, b>>), do: h > b
+  defp decrease?(<<h, b, _rest::binary>>) when h > b, do: true
+  defp decrease?(<<_h, rest::binary>>), do: decrease?(rest)
+
+  defp non_double?(""), do: true
+  defp non_double?(<<x, x, x, x, x, rest::binary>>), do: non_double?(rest)
+  defp non_double?(<<x, x, x, x, rest::binary>>), do: non_double?(rest)
+  defp non_double?(<<x, x, x, rest::binary>>), do: non_double?(rest)
+  defp non_double?(<<x, x, _rest::binary>>), do: false
+  defp non_double?(<<_x, rest::binary>>), do: non_double?(rest)
+end
+
+Part2.solve(input)
+```

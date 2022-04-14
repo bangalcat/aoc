@@ -1,0 +1,476 @@
+# aoc 2019 day 7 - fork
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.5.1"}])
+```
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+init_state =
+  input
+  |> Kino.Input.read()
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.with_index()
+  |> Map.new(fn {v, k} -> {k, v} end)
+```
+
+## Computer
+
+```elixir
+defmodule Computer.Operator do
+  defstruct [:params, :op_code]
+
+  def new(instruction) do
+    op_code = rem(instruction, 100)
+    params = get_parameters(instruction)
+
+    %__MODULE__{
+      op_code: op_code(op_code),
+      params: params
+    }
+  end
+
+  defp get_parameters(instruction) do
+    {
+      instruction |> div(100) |> rem(10),
+      instruction |> div(1_000) |> rem(10)
+    }
+  end
+
+  defp op_code(1), do: :add
+  defp op_code(2), do: :mul
+  defp op_code(3), do: :read
+  defp op_code(4), do: :print
+  defp op_code(5), do: :jump_neq
+  defp op_code(6), do: :jump_eq
+  defp op_code(7), do: :comp_lt
+  defp op_code(8), do: :comp_eq
+  defp op_code(99), do: :halt
+end
+```
+
+```elixir
+defmodule Computer.Memory do
+  @inc_mode 1
+  @addr_mode 0
+
+  defstruct memory: %{}, inputs: [], outputs: [], pointer: 0
+
+  def new(data: %__MODULE__{memory: map, inputs: prev_inputs, pointer: pointer}, inputs: inputs),
+    do: %__MODULE__{memory: map, inputs: prev_inputs ++ inputs, pointer: pointer}
+
+  def new(data: map, inputs: inputs) do
+    %__MODULE__{memory: map, inputs: inputs}
+  end
+
+  def get_instruction(%__MODULE__{memory: map, pointer: pointer}), do: map[pointer]
+
+  def get_value(%__MODULE__{memory: map}, position, @inc_mode), do: map[position]
+  def get_value(%__MODULE__{memory: map}, position, @addr_mode), do: map[map[position]]
+
+  def put_value(%__MODULE__{memory: map} = s, position, value),
+    do: %{s | memory: Map.put(map, map[position], value)}
+
+  def append_output(memory, output), do: %{memory | outputs: [output | memory.outputs]}
+
+  def move_pointer(memory, next_ptr), do: %{memory | pointer: next_ptr}
+
+  def pop_input(%__MODULE__{inputs: [input | rest]} = memory),
+    do: {input, %{memory | inputs: rest}}
+
+  def put_inputs(memory, inputs), do: %{memory | inputs: memory.inputs ++ inputs}
+end
+```
+
+```elixir
+
+```
+
+loop:
+  compute_until_output
+  output?:
+
+```
+cast next server
+```
+
+compute_until_output
+
+```elixir
+defmodule Computer do
+  alias Computer.{Memory, Operator}
+
+  @spec init_state(map(), list()) :: %Memory{}
+  def init_state(data, inputs \\ []) do
+    Memory.new(data: data, inputs: inputs)
+  end
+
+  @spec process(%Memory{}, list()) ::
+          {%Memory{}, :halt} | {%Memory{}, :hold} | {%Memory{}, list()}
+  def process(memory, inputs) do
+    Memory.new(data: memory, inputs: inputs)
+    |> compute_until_output()
+  end
+
+  @spec compute(%Memory{}) :: %Memory{}
+  def compute(memory) do
+    Memory.get_instruction(memory)
+    |> Operator.new()
+    |> case do
+      %Operator{op_code: :halt} ->
+        memory
+
+      op ->
+        move_operation(op, memory)
+        |> compute()
+    end
+  end
+
+  @spec compute_until_output(%Memory{}) ::
+          {%Memory{}, :halt} | {%Memory{}, :hold} | {%Memory{}, list()}
+  def compute_until_output(memory) do
+    Memory.get_instruction(memory)
+    |> Operator.new()
+    |> case do
+      %Operator{op_code: :halt} ->
+        {memory, :halt}
+
+      op ->
+        move_operation(op, memory)
+        |> case do
+          {memory, :hold} ->
+            {memory, :hold}
+
+          {memory, outputs} ->
+            {memory, outputs}
+
+          memory ->
+            compute_until_output(memory)
+        end
+    end
+  end
+
+  defp move_operation(%Operator{op_code: op_code, params: {p1, p2}}, memory)
+       when op_code in [:add, :mul] do
+    v1 = Memory.get_value(memory, memory.pointer + 1, p1)
+    v2 = Memory.get_value(memory, memory.pointer + 2, p2)
+    res = calc(op_code).(v1, v2)
+
+    next_pointer = memory.pointer + 4
+
+    Memory.put_value(memory, memory.pointer + 3, res)
+    |> Memory.move_pointer(next_pointer)
+  end
+
+  defp move_operation(%Operator{op_code: :read}, %{inputs: []} = memory) do
+    {memory, :hold}
+  end
+
+  defp move_operation(%Operator{op_code: :read}, memory) do
+    {input, memory} = Memory.pop_input(memory)
+
+    next_pointer = memory.pointer + 2
+
+    Memory.put_value(memory, memory.pointer + 1, input)
+    |> Memory.move_pointer(next_pointer)
+  end
+
+  defp move_operation(%Operator{op_code: :print, params: {p1, _}}, memory) do
+    output = Memory.get_value(memory, memory.pointer + 1, p1)
+    next_pointer = memory.pointer + 2
+
+    Memory.append_output(memory, output)
+    |> Memory.move_pointer(next_pointer)
+    |> then(&{&1, &1.outputs})
+  end
+
+  defp move_operation(%Operator{op_code: :jump_neq, params: {p1, p2}}, memory) do
+    predicate = Memory.get_value(memory, memory.pointer + 1, p1)
+    goto = Memory.get_value(memory, memory.pointer + 2, p2)
+
+    next_pointer = if predicate != 0, do: goto, else: memory.pointer + 3
+    Memory.move_pointer(memory, next_pointer)
+  end
+
+  defp move_operation(%Operator{op_code: :jump_eq, params: {p1, p2}}, memory) do
+    predicate = Memory.get_value(memory, memory.pointer + 1, p1)
+    goto = Memory.get_value(memory, memory.pointer + 2, p2)
+
+    next_pointer = if predicate == 0, do: goto, else: memory.pointer + 3
+    Memory.move_pointer(memory, next_pointer)
+  end
+
+  defp move_operation(%Operator{op_code: :comp_lt, params: {p1, p2}}, memory) do
+    v1 = Memory.get_value(memory, memory.pointer + 1, p1)
+    v2 = Memory.get_value(memory, memory.pointer + 2, p2)
+    value = if v1 < v2, do: 1, else: 0
+    next_pointer = memory.pointer + 4
+
+    Memory.put_value(memory, memory.pointer + 3, value)
+    |> Memory.move_pointer(next_pointer)
+  end
+
+  defp move_operation(%Operator{op_code: :comp_eq, params: {p1, p2}}, memory) do
+    v1 = Memory.get_value(memory, memory.pointer + 1, p1)
+    v2 = Memory.get_value(memory, memory.pointer + 2, p2)
+    value = if v1 == v2, do: 1, else: 0
+    next_pointer = memory.pointer + 4
+
+    Memory.put_value(memory, memory.pointer + 3, value)
+    |> Memory.move_pointer(next_pointer)
+  end
+
+  defp calc(:add), do: &Kernel.+/2
+  defp calc(:mul), do: &Kernel.*/2
+end
+```
+
+```elixir
+defmodule ComputerServer do
+  use GenServer, restart: :transient
+
+  require Computer
+
+  def start_link(args) do
+    GenServer.start_link(__MODULE__, args)
+  end
+
+  @impl true
+  def init(data: data, inputs: inputs, amp: amp, callback: callback) do
+    IO.puts("server start! amp: #{amp}")
+
+    {:ok,
+     %{
+       comp_memory: Computer.init_state(data, inputs),
+       next: nil,
+       outputs: [],
+       amp: amp,
+       callback: callback
+     }}
+  end
+
+  def handle_cast({:register_next, next}, state) do
+    {:noreply, %{state | next: next}}
+  end
+
+  @impl true
+  def handle_cast({:start, inputs}, state) do
+    IO.puts("this is process start!")
+    go(state, inputs)
+  end
+
+  @impl true
+  def handle_cast({:push, inputs}, state) do
+    go(state, inputs)
+  end
+
+  @impl true
+  def handle_continue(:process, state) do
+    go(state)
+  end
+
+  defp go(%{comp_memory: memory, next: next, outputs: outputs} = s, inputs \\ []) do
+    case Computer.process(memory, inputs) do
+      {new_memory, :hold} ->
+        {:noreply, %{s | comp_memory: new_memory}}
+
+      {_state, :halt} ->
+        IO.puts("#{s.amp}: #{inspect(outputs)}")
+        if s.callback, do: outputs |> hd() |> s.callback.()
+        {:stop, :normal, outputs}
+
+      {new_memory, [new_output]} ->
+        GenServer.cast(next, {:push, [new_output]})
+
+        {:noreply, %{s | comp_memory: new_memory, outputs: [new_output | outputs]},
+         {:continue, :process}}
+    end
+  end
+end
+```
+
+```elixir
+defmodule ComputerManager do
+  use GenServer
+
+  # def start_link(args) do
+  #   GenServer.start_link(__MODULE__, args)
+  # end
+
+  def run_amplifiers(args) do
+    args = args |> Map.new() |> Map.put(:callback, self())
+    {:ok, _pid} = GenServer.start_link(__MODULE__, args)
+
+    receive do
+      {:output, output} ->
+        output
+    after
+      5000 ->
+        {:error, :timeout}
+    end
+  end
+
+  #########################################
+
+  def init(args) do
+    Process.flag(:trap_exit, true)
+    init_data = args[:init_data]
+    phases = args[:phases]
+    callback_fn = fn output -> send(args[:callback], {:output, output}) end
+
+    children =
+      phases
+      |> Enum.zip([:A, :B, :C, :D, :E])
+      |> Enum.map(fn {phase, amp} ->
+        {:ok, pid} =
+          ComputerServer.start_link(
+            data: init_data,
+            inputs: [phase],
+            amp: amp,
+            callback: if(amp == :E, do: callback_fn)
+          )
+
+        {amp, pid}
+      end)
+      |> Map.new()
+
+    register_all_next(children)
+    {:ok, children, {:continue, {:process, :A}}}
+  end
+
+  @impl true
+  def handle_continue({:process, amp}, children) do
+    IO.puts("amp start : #{amp}")
+    # IO.inspect(children)
+    GenServer.cast(children[amp], {:start, [0]})
+    {:noreply, children}
+  end
+
+  def handle_info({:EXIT, from, :normal}, children) do
+    amp = children |> Enum.find_value(fn {amp, pid} -> pid == from && amp end)
+    IO.puts("Amp end #{amp}(#{inspect(from)})")
+
+    remain = children |> Enum.reject(fn {_amp, pid} -> pid == from end)
+
+    if remain == [] do
+      IO.puts("all amps ends")
+      {:stop, :normal, []}
+    else
+      {:noreply, remain}
+    end
+  end
+
+  defp register_all_next(children) do
+    [:A, :B, :C, :D, :E]
+    |> Enum.chunk_every(2, 1, [:A])
+    |> Enum.each(fn [cur, next] ->
+      GenServer.cast(children[cur], {:register_next, children[next]})
+    end)
+  end
+end
+```
+
+```elixir
+ComputerManager.run_amplifiers(init_data: init_state, phases: [9, 8, 7, 6, 5])
+```
+
+```elixir
+
+```
+
+## Permute
+
+```elixir
+defmodule Permutator do
+  def permute(range) do
+    permute(Enum.to_list(range), Range.size(range), [], [])
+  end
+
+  defp permute([], _len, acc, total), do: [acc | total]
+
+  defp permute(list, len, acc, total) do
+    for i <- 0..(len - 1), reduce: total do
+      tt ->
+        {n, rest} = List.pop_at(list, i)
+        permute(rest, len - 1, [n | acc], tt)
+    end
+  end
+end
+```
+
+## Part 1
+
+```elixir
+defmodule Part1.Solver do
+  def solve(init_data) do
+    Permutator.permute(0..4)
+    |> Enum.map(fn phases ->
+      phases
+      |> Enum.reduce(init_data, fn phase, state ->
+        output = state |> Map.get(:outputs, [0]) |> List.first()
+
+        Computer.init_state(init_data, [phase, output])
+        |> Computer.compute()
+      end)
+    end)
+    |> Enum.max()
+  end
+end
+```
+
+```elixir
+# Part1.Solver.solve(init_state)
+```
+
+## Part 2
+
+```elixir
+defmodule Part2.Solver do
+  def solve(init_data) do
+    Permutator.permute(5..9)
+    |> Task.async_stream(fn phases ->
+      computer_map = for p <- phases, into: %{}, do: {p, Computer.init_state(init_data, [p])}
+
+      phases
+      |> Stream.cycle()
+      # |> Enum.take(300)
+      |> Enum.reduce_while({computer_map, [0]}, fn
+        phase, {cpt_map, :halt} ->
+          {:halt, cpt_map[List.last(phases)].outputs |> List.first()}
+
+        phase, {cpt_map, outputs} ->
+          state = cpt_map[phase]
+          {state, outputs} = Computer.process(state, outputs)
+          {:cont, {cpt_map |> Map.put(phase, state), outputs}}
+      end)
+    end)
+    |> Enum.max_by(&elem(&1, 1))
+  end
+end
+```
+
+```elixir
+Part2.Solver.solve(init_state)
+```
+
+```elixir
+defmodule Part2.ServerSolver do
+  def solve(init_data) do
+    Permutator.permute(5..9)
+    |> Task.async_stream(fn phases ->
+      ComputerManager.run_amplifiers(init_data: init_data, phases: phases)
+    end)
+    |> Enum.reduce(0, fn {:ok, cur}, prev -> max(cur, prev) end)
+  end
+end
+```
+
+```elixir
+Part2.ServerSolver.solve(init_state)
+```

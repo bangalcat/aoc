@@ -1,0 +1,111 @@
+# Aoc 2019 - day 10
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.5.2"}
+])
+```
+
+## Setup
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+coords_map =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.with_index(0)
+  |> Enum.flat_map(fn {line, y} ->
+    line
+    |> String.codepoints()
+    |> Enum.with_index(0)
+    |> Enum.filter(fn {c, _} -> c == "#" end)
+    |> Enum.map(fn {_c, x} -> {{x, y}, 0} end)
+  end)
+  |> Enum.into(%{})
+```
+
+## Part 1
+
+```elixir
+get_max_coord = fn coords_map ->
+  coords_map
+  |> Enum.reduce(coords_map, fn {{x, y}, _}, crds_map ->
+    coords_map
+    |> Map.delete({x, y})
+    |> Stream.map(fn {{x1, y1}, _} -> {x1 - x, y1 - y} end)
+    |> MapSet.new(fn
+      {0, y} when y >= 0 -> :inf
+      {0, y} when y < 0 -> :neg_inf
+      {x, y} when x > 0 -> {:pos, y / x}
+      {x, y} -> {:neg, y / x}
+    end)
+    |> MapSet.size()
+    |> then(&Map.put(crds_map, {x, y}, &1))
+  end)
+  # |> Enum.sort_by(&elem(&1, 1), :desc)
+  |> Enum.max_by(&elem(&1, 1))
+end
+
+get_max_coord.(coords_map)
+```
+
+## Part 2
+
+```elixir
+mark = {mark_x = 26, mark_y = 28}
+```
+
+```elixir
+{0, 0, 1} > {0, 1}
+```
+
+```elixir
+angle_fn = fn
+  {0, y} when y >= 0 -> :pos_inf
+  {0, y} when y < 0 -> :neg_inf
+  {x, y} when x > 0 -> {:pos, y / x}
+  {x, y} -> {:neg, y / x}
+end
+
+mapper = fn
+  %{angle: :neg_inf, phase: phs} ->
+    {phs, 0, 0}
+
+  %{angle: {:pos, angle}, phase: phs} ->
+    {phs, 1, angle}
+
+  %{angle: :pos_inf, phase: phs} ->
+    {phs, 2, 0}
+
+  %{angle: {:neg, angle}, phase: phs} ->
+    {phs, 3, angle}
+end
+
+dist_fn = fn {{x, y}, _} ->
+  x * x + y * y
+end
+
+coords_map
+|> get_max_coord.()
+|> then(fn {mark, _} -> {coords_map, mark} end)
+|> then(fn {coords_map, {mark_x, mark_y}} ->
+  coords_map
+  |> Map.delete({mark_x, mark_y})
+  |> Enum.sort_by(&dist_fn.(&1))
+  |> Enum.map_reduce(%{}, fn {{x, y} = crd, _}, angle_counter ->
+    angle = angle_fn.({x - mark_x, y - mark_y})
+    {phase, updated_ac} = Map.get_and_update(angle_counter, angle, &{&1 || 0, (&1 || 0) + 1})
+    {%{phase: phase, coord: crd, angle: angle}, updated_ac}
+  end)
+end)
+|> elem(0)
+|> Enum.sort_by(&mapper.(&1))
+# |> Enum.take(200)
+|> Enum.at(19)
+
+# |> Map.get(:coord)
+```

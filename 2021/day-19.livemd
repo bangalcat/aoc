@@ -1,0 +1,164 @@
+# Aoc 2021 day 19
+
+## Section
+
+```elixir
+Mix.install([{:kino, "~> 0.5.0"}])
+```
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+defmodule Parser do
+  def parse(input) do
+    input
+    |> Kino.Input.read()
+    |> String.split(~r/--- scanner \d+ ---\n/, trim: true)
+    |> Enum.map(fn line ->
+      String.split(line, [",", "\n"], trim: true)
+      |> Enum.map(&String.to_integer/1)
+      |> Enum.chunk_every(3)
+    end)
+  end
+end
+
+defmodule Part1 do
+  def relative_coord(sc1, sc2) do
+    for [x0, y0, z0] <- sc1,
+        [x, y, z] <- sc2,
+        {x1, y1, z1} <- [{x, y, z}, {x, z, y}, {y, x, z}, {y, z, x}, {z, y, x}, {z, x, y}] do
+      [
+        {x0 + x1, y0 + y1, z0 + z1, {1, 1, 1}},
+        {x0 - x1, y0 + y1, z0 + z1},
+        {x0 + x1, y0 - y1, z0 + z1},
+        {x0 + x1, y0 + y1, z0 - z1},
+        {x0 - x1, y0 - y1, z0 + z1},
+        {x0 + x1, y0 - y1, z0 - z1},
+        {x0 - x1, y0 + y1, z0 - z1},
+        {x0 - x1, y0 - y1, z0 - z1}
+      ]
+    end
+    |> List.flatten()
+    |> Enum.frequencies()
+    |> Enum.filter(fn {_, cnt} -> cnt >= 12 end)
+    |> case do
+      [] ->
+        nil
+
+      [{coord, _}] ->
+        coord
+    end
+  end
+
+  def convert_coord(coords, {x, y, z}) do
+    coords
+    |> Enum.map(fn [ax, ay, az] ->
+      [ax - x, ay - y, az - z]
+    end)
+  end
+
+  def rotation({x, y, z}) do
+    1..24
+    |> Enum.scan({x, y, z}, fn
+      i, pos when rem(i, 4) == 0 ->
+        `roll(pos)
+
+      i, pos ->
+        turn(pos, div(i, 4))
+    end)
+  end
+
+  defp roll({x, y, z}), do: {-z, y, x}
+  defp turn({x, y, z}, i) when rem(i, 2) == 0, do: {y, -x, z}
+  defp turn({x, y, z}, _i), do: {-y, x, z}
+end
+```
+
+```elixir
+Part1.rotation({4, 5, 6})
+|> Enum.frequencies()
+```
+
+```elixir
+[sc0, sc1, sc2, sc3, sc4] = scanners = Parser.parse(input)
+```
+
+```elixir
+coord = Part1.relative_coord(sc0, sc1)
+# Part1.convert_coord(sc1, coord)
+```
+
+```elixir
+for left <- 0..(length(scanners) - 1),
+    right <- 1..length(scanners),
+    sc0 = Enum.at(scanners, left),
+    sc1 = Enum.at(scanners, right),
+    [x0, y0, z0] <- sc0,
+    [x, y, z] <- sc1,
+    {x1, y1, z1} <- [{x, y, z}, {x, z, y}, {y, x, z}, {y, z, x}, {z, y, x}, {z, x, y}],
+    left < right do
+  [
+    {x0 + x1, y0 + y1, z0 + z1},
+    {x0 - x1, y0 + y1, z0 + z1},
+    {x0 + x1, y0 - y1, z0 + z1},
+    {x0 + x1, y0 + y1, z0 - z1},
+    {x0 - x1, y0 - y1, z0 + z1},
+    {x0 + x1, y0 - y1, z0 - z1},
+    {x0 - x1, y0 + y1, z0 - z1},
+    {x0 - x1, y0 - y1, z0 - z1}
+  ]
+  |> Enum.zip(Stream.repeatedly(fn -> {left, right} end))
+end
+|> List.flatten()
+|> Enum.frequencies()
+|> Enum.filter(fn {_, cnt} -> cnt >= 12 end)
+```
+
+```elixir
+i0 = """
+-618,-824,-621
+-537,-823,-458
+-447,-329,318
+404,-588,-901
+544,-627,-890
+528,-643,409
+-661,-816,-575
+390,-675,-793
+423,-701,434
+-345,-311,381
+459,-707,401
+-485,-357,347
+"""
+
+i1 = """
+686,422,578
+605,423,415
+515,917,-361
+-336,658,858
+-476,619,847
+-460,603,-452
+729,430,532
+-322,571,750
+-355,545,-477
+413,935,-424
+-391,539,-444
+553,889,-390
+"""
+
+[i0, i1]
+|> Enum.map(
+  &(String.split(&1, [",", "\n"], trim: true)
+    |> Enum.map(fn s -> String.to_integer(s) end)
+    |> Enum.chunk_every(3))
+)
+|> Enum.zip()
+|> Enum.map(fn {[x0, y0, z0], [x1, y1, z1]} ->
+  {x0 + x1, y0 - y1, z0 + z1}
+end)
+```
+
+```elixir
+
+```

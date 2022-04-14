@@ -1,0 +1,57 @@
+# aoc 2021 day 17
+
+## Part 1
+
+target area에 던져서 넣어야함
+
+가장 높게 던질수 있는 각도와 속도는?
+
+target 벗어난 시점은 알 수 있다. max_x나 max_y보다 커지는 시점.
+`x > max_x or y > max_y`
+
+모든 경우의 수를 시뮬레이션한다면? (1, 1) 부터 (abs(max_x), abs(max_y)) 정도까지
+
+200 x 200 이면, 40000개 점. 4만개 점을 평균 100번씩 시뮬레이션해도 400만
+
+OPTM: x는 항상 y보다 작거나 같아야 할것같다.
+
+```elixir
+defmodule Simulate do
+  def simulate(cur, vel, target_area, highest_y \\ 0)
+
+  def simulate({x, y}, _v, [x_min, x_max, y_min, y_max], highest_y)
+      when x_min <= x and x <= x_max and y_min <= y and y <= y_max do
+    max(highest_y, y)
+  end
+
+  def simulate({x, y}, _velocity, [_x_min, x_max, y_min, _y_max] = _target_area, _highest_y)
+      when x > x_max or y < y_min,
+      do: -1
+
+  def simulate({x, y}, {vx, vy}, target_area, highest_y) do
+    next = {x + vx, y + vy}
+    simulate(next, {max(vx - 1, 0), vy - 1}, target_area, max(highest_y, y))
+  end
+end
+```
+
+```elixir
+# input = "target area: x=20..30, y=-10..-5"
+input = "target area: x=57..116, y=-198..-148"
+
+[_, x_min, x_max, _, y_min, y_max] =
+  input
+  |> String.split(["=", "..", ","], trim: true)
+
+target_area =
+  [x_min, x_max, y_min, y_max] = [x_min, x_max, y_min, y_max] |> Enum.map(&String.to_integer/1)
+
+start = {0, 0}
+
+for vx <- -200..200,
+    vy <- -200..200 do
+  Simulate.simulate(start, {vx, vy}, target_area)
+end
+# |> Enum.max()
+|> Enum.count(&(&1 >= 0))
+```
