@@ -1,0 +1,111 @@
+# Aoc 2019 day 11 - 2
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.5.2"},
+  {:int_code, path: "./2019/int_code"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+init_data =
+  input
+  |> Kino.Input.read()
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.with_index()
+  |> Map.new(fn {v, k} -> {k, v} end)
+```
+
+## Part 1
+
+0 = black \
+1 = white
+
+0 = left 90\
+1 = right 90
+
+```elixir
+defmodule Robot do
+  alias IntCode.Computer
+
+  def process(init_data, init_grid \\ %{}) do
+    init_data
+    |> Computer.init_state()
+    |> do_process({0, 0}, :up, init_grid)
+  end
+
+  defp do_process(data, cur_pos, cur_dir, grid) do
+    cur_color = grid |> Map.get(cur_pos, 0)
+
+    case Computer.process(data, [cur_color], output_count: 2) do
+      {next_data, [direction, color]} ->
+        next_grid = paint(grid, cur_pos, color)
+        next_dir = rotate(cur_dir, direction)
+        next_pos = move(cur_pos, next_dir)
+        do_process(next_data, next_pos, next_dir, next_grid)
+
+      {data, :halt} ->
+        {grid, cur_pos, cur_dir, data}
+    end
+  end
+
+  defp paint(grid, pos, color) do
+    Map.put(grid, pos, color)
+  end
+
+  defp rotate(:up, 0), do: :left
+  defp rotate(:up, 1), do: :right
+  defp rotate(:right, 0), do: :up
+  defp rotate(:right, 1), do: :down
+  defp rotate(:down, 0), do: :right
+  defp rotate(:down, 1), do: :left
+  defp rotate(:left, 0), do: :down
+  defp rotate(:left, 1), do: :up
+
+  defp move({x, y}, :up), do: {x, y - 1}
+  defp move({x, y}, :right), do: {x + 1, y}
+  defp move({x, y}, :left), do: {x - 1, y}
+  defp move({x, y}, :down), do: {x, y + 1}
+end
+```
+
+```elixir
+{grid, p, d, mem} = Robot.process(init_data)
+grid |> Map.keys() |> Enum.count()
+```
+
+## Part 2
+
+```elixir
+{grid, p, d, mem} = Robot.process(init_data, %{{0, 0} => 1})
+```
+
+```elixir
+defmodule Drawer do
+  @min -2
+  @max 45
+  @max_y 7
+
+  def draw(grid) do
+    @min..@max_y
+    |> Enum.map(fn y ->
+      @min..@max
+      |> Enum.map(fn x ->
+        if grid[{x, y}] == 1, do: "⬛️", else: "⬜️"
+      end)
+      |> Enum.join()
+    end)
+    |> Enum.join("\n")
+  end
+end
+
+Drawer.draw(grid)
+|> IO.puts()
+```

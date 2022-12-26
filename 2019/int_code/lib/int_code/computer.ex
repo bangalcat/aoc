@@ -21,109 +21,66 @@ defmodule IntCode.Computer do
   @spec compute(%Memory{}, integer()) ::
           {%Memory{}, :halt} | {%Memory{}, :hold} | {%Memory{}, list()}
   def compute(memory, output_count) do
-    Memory.get_instruction(memory)
-    |> Operator.new()
+    Operator.new(
+      &get_value(&1.(memory), &2),
+      &put_value(&1.(memory), &2, &3),
+      &read_input(&1.(memory), &2),
+      &print_output(&1, &2),
+      &move(&1.(memory), &2),
+      &adjust(&1.(memory), &2)
+    )
+    |> Operator.operate(Memory.get_instruction(memory))
     |> case do
-      %_{op_code: :halt} ->
+      :halt ->
         {memory, :halt}
 
-      op ->
-        move_operation(op, memory)
-        |> case do
-          {memory, :hold} ->
-            {memory, :hold}
+      {memory, :hold} ->
+        {memory, :hold}
 
-          {memory, outputs} when output_count <= 1 ->
-            {memory, outputs}
+      {memory, outputs} when output_count <= 1 ->
+        {memory, outputs}
 
-          {memory, _outputs} ->
-            compute(memory, dec(output_count))
+      {memory, _outputs} ->
+        compute(memory, dec(output_count))
 
-          memory ->
-            compute(memory, output_count)
-        end
+      memory ->
+        compute(memory, output_count)
     end
   end
 
-  defp move_operation(%Operator{op_code: op_code, params: {p1, p2, p3}}, memory)
-       when op_code in [:add, :mul] do
-    v1 = Memory.get_value(memory, 1, p1)
-    v2 = Memory.get_value(memory, 2, p2)
-    res = calc(op_code).(v1, v2)
-
-    next_pointer = memory.pointer + 4
-
-    Memory.put_value(memory, 3, res, p3)
-    |> Memory.move_pointer(next_pointer)
+  defp get_value(memory, {offset, mode}) do
+    Memory.get_value(memory, offset, mode)
   end
 
-  defp move_operation(%Operator{op_code: :read}, %{inputs: []} = memory) do
-    {memory, :hold}
+  defp put_value(memory, {offset, mode}, res) do
+    Memory.put_value(memory, offset, res, mode)
   end
 
-  defp move_operation(%Operator{op_code: :read, params: {p1, _, _}}, memory) do
+  defp read_input(%{inputs: []} = mem, _), do: {mem, :hold}
+
+  defp read_input(memory, {offset, mode}) do
     {input, memory} = Memory.pop_input(memory)
-
-    next_pointer = memory.pointer + 2
-
-    Memory.put_value(memory, 1, input, p1)
-    |> Memory.move_pointer(next_pointer)
+    Memory.put_value(memory, offset, input, mode)
   end
 
-  defp move_operation(%Operator{op_code: :print, params: {p1, _, _}}, memory) do
-    output = Memory.get_value(memory, 1, p1)
-    next_pointer = memory.pointer + 2
-
+  defp print_output(memory, output) do
     Memory.prepend_outputs(memory, output)
-    |> Memory.move_pointer(next_pointer)
     |> then(&{&1, &1.outputs})
   end
 
-  defp move_operation(%Operator{op_code: :jump_neq, params: {p1, p2, _}}, memory) do
-    predicate = Memory.get_value(memory, 1, p1)
-    goto = Memory.get_value(memory, 2, p2)
+  defp move({mem, :hold}, _), do: {mem, :hold}
 
-    next_pointer = if predicate != 0, do: goto, else: memory.pointer + 3
-    Memory.move_pointer(memory, next_pointer)
+  defp move(memory, {:goto, pointer}) do
+    Memory.move_pointer(memory, pointer)
   end
 
-  defp move_operation(%Operator{op_code: :jump_eq, params: {p1, p2, _}}, memory) do
-    predicate = Memory.get_value(memory, 1, p1)
-    goto = Memory.get_value(memory, 2, p2)
-
-    next_pointer = if predicate == 0, do: goto, else: memory.pointer + 3
-    Memory.move_pointer(memory, next_pointer)
+  defp move(memory, offset) do
+    Memory.move_pointer(memory, memory.pointer + offset)
   end
 
-  defp move_operation(%Operator{op_code: :comp_lt, params: {p1, p2, p3}}, memory) do
-    v1 = Memory.get_value(memory, 1, p1)
-    v2 = Memory.get_value(memory, 2, p2)
-    value = if v1 < v2, do: 1, else: 0
-    next_pointer = memory.pointer + 4
-
-    Memory.put_value(memory, 3, value, p3)
-    |> Memory.move_pointer(next_pointer)
+  defp adjust(memory, offset) do
+    Memory.adjust_relative_base(memory, offset)
   end
-
-  defp move_operation(%Operator{op_code: :comp_eq, params: {p1, p2, p3}}, memory) do
-    v1 = Memory.get_value(memory, 1, p1)
-    v2 = Memory.get_value(memory, 2, p2)
-    value = if v1 == v2, do: 1, else: 0
-    next_pointer = memory.pointer + 4
-
-    Memory.put_value(memory, 3, value, p3)
-    |> Memory.move_pointer(next_pointer)
-  end
-
-  defp move_operation(%Operator{op_code: :adj_rb, params: {p1, _, _}}, memory) do
-    v = Memory.get_value(memory, 1, p1)
-
-    Memory.adjust_relative_base(memory, v)
-    |> Memory.move_pointer(memory.pointer + 2)
-  end
-
-  defp calc(:add), do: &Kernel.+/2
-  defp calc(:mul), do: &Kernel.*/2
 
   defp dec(:infinity), do: :infinity
   defp dec(n) when is_number(n), do: n - 1

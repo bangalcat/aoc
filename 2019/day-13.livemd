@@ -1,0 +1,186 @@
+# Aoc 2019 - day 13
+
+```elixir
+Mix.install([
+  {:int_code, path: "~/workspace/study/languages/elixir-practices/aoc/2019/int_code"},
+  {:kino, "~> 0.6.1"}
+])
+```
+
+## Setup
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+## Part 1
+
+```elixir
+init_data =
+  input
+  |> Kino.Input.read()
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.with_index()
+  |> Map.new(fn {v, k} -> {k, v} end)
+```
+
+```elixir
+{%{outputs: outputs}, :halt} = IntCode.Computer.process(init_data, [])
+```
+
+```elixir
+outputs
+|> Enum.reverse()
+|> Enum.chunk_every(3)
+|> Enum.filter(fn [_x, _y, t] -> t == 2 end)
+# |> IO.inspect(limit: :infinity)
+|> Enum.count()
+```
+
+## Part 2
+
+1. 메모리 0에 2
+2. 조이스틱으로 paddle 조정 - input은 언제 받는지?
+   3.
+
+```elixir
+frame = Kino.Frame.new()
+```
+
+```elixir
+Kino.configure(inspect: [pretty: true])
+Kino.Frame.render(frame, IO.puts(["a", "b"]))
+```
+
+```elixir
+defmodule Game do
+  defstruct board: %{}, cur_ball: nil, cur_paddle: nil, memory: nil, score: nil
+
+  def init(init_data) do
+    init_data
+    |> put_coin()
+    |> IntCode.Computer.init_state()
+    |> then(&%__MODULE__{memory: &1})
+  end
+
+  defp put_coin(data), do: Map.put(data, 0, 2)
+
+  def update_state(%__MODULE__{} = state) do
+    {board, cur_ball, cur_paddle} = board_info(state.memory.outputs)
+    board = Map.merge(state.board, board)
+    score = board[{-1, 0}]
+
+    %{
+      state
+      | board: board,
+        cur_ball: cur_ball || state.cur_ball,
+        cur_paddle: cur_paddle || state.cur_paddle,
+        score: score
+    }
+  end
+
+  def play(%__MODULE__{} = state, frame \\ nil) do
+    input = determine_joystick(state.cur_ball, state.cur_paddle)
+
+    case IntCode.Computer.process(state.memory, input) do
+      {memory, :hold} ->
+        state
+        |> Map.put(:memory, memory)
+        |> update_state()
+        |> tap(&draw(&1, frame))
+        |> play(frame)
+
+      {memory, :halt} ->
+        state
+        |> Map.put(:memory, memory)
+        |> update_state()
+        |> tap(&draw(&1, frame))
+    end
+  end
+
+  defp draw(_state, nil), do: :ok
+
+  defp draw(state, frame) do
+    Drawer.draw_board(state.board, frame)
+    Process.sleep(50)
+  end
+
+  defp determine_joystick(nil, nil), do: [0]
+
+  defp determine_joystick({bx, _y} = _cur_ball, {px, _} = _cur_paddle) do
+    cond do
+      bx == px -> [0]
+      bx > px -> [1]
+      true -> [-1]
+    end
+  end
+
+  defp board_info(outputs) do
+    outputs
+    |> Enum.reverse()
+    |> Enum.chunk_every(3)
+    |> Enum.reduce({%{}, nil, nil}, fn
+      [x, y, 4], {grid, _cur_ball, cur_pad} ->
+        {Map.put(grid, {x, y}, 4), {x, y}, cur_pad}
+
+      [x, y, 3], {grid, cur_ball, _cur_pad} ->
+        {Map.put(grid, {x, y}, 3), cur_ball, {x, y}}
+
+      [x, y, t], {grid, cur_ball, cur_pad} ->
+        {Map.put(grid, {x, y}, t), cur_ball, cur_pad}
+    end)
+  end
+end
+```
+
+```elixir
+defmodule Drawer do
+  def draw_board(board, frame \\ Kino.Frame.new()) do
+    board
+    |> Enum.reject(&match?({{-1, _}, _}, &1))
+    |> Enum.sort_by(fn {{x, y}, _t} -> {y, x} end)
+    |> Enum.chunk_by(fn {{_x, y}, _t} -> y end)
+    |> Enum.map_join(
+      "<br>",
+      &Enum.map_join(&1, "", fn
+        {_, 0} -> " "
+        {_, 1} -> "🟫"
+        {_, 2} -> "🟦"
+        {_, 3} -> "🀵"
+        {_, 4} -> "🥎"
+      end)
+    )
+    |> Kernel.<>("<br>**score: #{board[{-1, 0}]}**")
+    |> then(&Kino.Frame.render(frame, Kino.Markdown.new(&1)))
+  end
+end
+```
+
+```elixir
+state =
+  Game.init(init_data)
+  |> Game.play()
+```
+
+```elixir
+state.score
+```
+
+## Draw
+
+⬛⬛⬛⬛⬛⬛⬛ ⬛⬛⬛
+
+⬛⬛⬛⬛⬛
+
+```elixir
+frame = Kino.Frame.new()
+```
+
+```elixir
+Drawer.draw_board(state.board, frame)
+```
+
+```elixir
+Game.init(init_data) |> Game.play(frame)
+```

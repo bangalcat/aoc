@@ -1,0 +1,166 @@
+# Aoc 2019 - day 12
+
+## Section
+
+```elixir
+Mix.install([
+  {:nimble_parsec, "~> 1.2"}
+])
+```
+
+## Setup
+
+```elixir
+input = """
+<x=0, y=6, z=1>
+<x=4, y=4, z=19>
+<x=-11, y=1, z=8>
+<x=2, y=19, z=15>
+"""
+
+input1 = """
+<x=-1, y=0, z=2>
+<x=2, y=-10, z=-7>
+<x=4, y=-8, z=8>
+<x=3, y=5, z=-1>
+"""
+
+input2 = """
+<x=-8, y=-10, z=0>
+<x=5, y=5, z=10>
+<x=2, y=-7, z=3>
+<x=9, y=-8, z=-3>
+"""
+```
+
+```elixir
+defmodule PosParser do
+  import NimbleParsec
+
+  num =
+    choice([
+      integer(min: 1),
+      ignore(string("-")) |> integer(min: 1) |> map({Kernel, :*, [-1]})
+    ])
+
+  coord = optional(string(", ")) |> ascii_char([?x, ?y, ?z]) |> ignore(string("="))
+
+  planet =
+    ignore(string("<"))
+    |> times(ignore(coord) |> concat(num), 3)
+    |> ignore(string(">"))
+    |> optional(ignore(string("\n")))
+
+  defparsec(:parse, planet |> wrap() |> times(4), debug: true)
+end
+```
+
+```elixir
+{:ok, res, _, _, _, _} = PosParser.parse(input)
+```
+
+```elixir
+init_data = res
+```
+
+```elixir
+[apos, bpos, cpos, dpos] = res
+
+[apos, bpos, cpos, dpos]
+|> Enum.zip_with(fn [a, b, c, d] ->
+  [a, b, c, d]
+end)
+```
+
+## Part 1
+
+```elixir
+gravity_fn = fn list, p ->
+  list
+  |> Enum.reduce(0, fn
+    ^p, g -> g
+    x, g when x > p -> g + 1
+    _, g -> g - 1
+  end)
+end
+
+sum = fn [ps, vs] ->
+  [ps, vs]
+  |> Enum.map(fn s ->
+    Enum.map(s, &abs/1)
+    |> Enum.sum()
+  end)
+  |> Enum.product()
+end
+
+init_data
+|> Enum.map(fn pos -> [pos, [0, 0, 0]] end)
+|> Stream.iterate(fn
+  [
+    [apos, avs],
+    [bpos, bvs],
+    [cpos, cvs],
+    [dpos, dvs]
+  ] ->
+    all_pos = List.flatten([apos, bpos, cpos, dpos])
+    all_vs = List.flatten([avs, bvs, cvs, dvs])
+
+    list
+    |> Enum.map(Enum.reduce(list, &1))
+
+    [apos, bpos, cpos, dpos]
+    |> Enum.zip_with(&Function.identity/1)
+    # [xlist, ylist, zlist]
+    |> Stream.cycle()
+    # [ax, ay, az, bx, by, bz, cx, ..., dz]
+    |> Stream.zip(all_pos)
+    |> Stream.map(fn {xlist, ax} -> {ax, gravity_fn.(xlist, ax)} end)
+    |> Stream.zip_with(all_vs, fn {p, vg}, v -> {p + vg + v, vg + v} end)
+    |> Stream.chunk_every(3)
+    |> Enum.map(&(Enum.unzip(&1) |> Tuple.to_list()))
+end)
+|> Enum.take(1001)
+|> List.last()
+|> Enum.map(&sum.(&1))
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  def run(init_data) do
+    init_data
+    |> Enum.zip_with(&Function.identity/1)
+    |> Enum.map(fn axis ->
+      Stream.iterate(0, &(&1 + 1))
+      |> Enum.reduce_while({axis, [0, 0, 0, 0]}, fn
+        c, {^axis, [0, 0, 0, 0]} when c > 0 ->
+          {:halt, c}
+
+        _c, {axis, vels} ->
+          vels =
+            axis
+            |> Enum.map(&gravity(axis, &1))
+            |> Enum.zip_with(vels, fn g, v -> g + v end)
+
+          axis = Enum.zip_with(axis, vels, fn p, v -> p + v end)
+          {:cont, {axis, vels}}
+      end)
+    end)
+    # |> Enum.map(fn {:ok, result} -> result end)
+    |> Enum.reduce(fn a, b -> div(a * b, Integer.gcd(a, b)) end)
+  end
+
+  def gravity(list, p) do
+    list
+    |> Enum.reduce(0, fn
+      ^p, g -> g
+      x, g when x > p -> g + 1
+      _, g -> g - 1
+    end)
+  end
+end
+
+Part2.run(init_data)
+```

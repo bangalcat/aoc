@@ -1,0 +1,250 @@
+# Aoc 2019 day - 16
+
+## Section
+
+```elixir
+input = """
+59701570675760924481468012067902478812377492613954566256863227624090726538076719031827110112218902371664052147572491882858008242937287936208269895771400070570886260309124375604950837194732536769939795802273457678297869571088110112173204448277260003249726055332223066278888042125728226850149451127485319630564652511440121971260468295567189053611247498748385879836383604705613231419155730182489686270150648290445732753180836698378460890488307204523285294726263982377557287840630275524509386476100231552157293345748976554661695889479304833182708265881051804444659263862174484931386853109358406272868928125418931982642538301207634051202072657901464169114
+"""
+
+input1 = """
+12345678
+"""
+
+input3 = """
+80871224585914546619083218645595
+"""
+```
+
+```elixir
+abs(rem(-19, 10))
+```
+
+```elixir
+repeats = [0, 1, 0, -1]
+
+for <<i <- input1>>, r <- repeats, into: <<>> do
+  i = i - ?0
+  res = rem(i * r, 10) |> abs()
+  <<res + ?0>>
+end
+```
+
+```elixir
+input1
+|> String.trim()
+|> String.to_charlist()
+|> Enum.zip(Stream.cycle(repeats))
+|> Enum.map(fn {i, r} ->
+  i |> Kernel.-(?0) |> Kernel.*(r) |> rem(10) |> abs() |> Kernel.+(?0)
+end)
+```
+
+```elixir
+digits = input1 |> String.trim() |> String.to_integer() |> Integer.digits(10)
+
+1..length(digits)
+|> Enum.map(fn i ->
+  pattern =
+    repeats
+    |> Enum.flat_map(&List.duplicate(&1, i))
+    |> Stream.cycle()
+    |> Stream.drop(1)
+
+  digits
+  |> Enum.zip(pattern)
+  # |> IO.inspect()
+  |> Enum.map(fn {x, y} -> x * y end)
+  |> Enum.sum()
+  |> rem(10)
+  |> abs()
+end)
+```
+
+```elixir
+defmodule Part1 do
+  @repeats [0, 1, 0, -1]
+
+  def process(input, end_phase) do
+    input
+    |> to_digits()
+    |> process(0, end_phase)
+  end
+
+  defp process(result, end_phase, end_phase), do: result |> Enum.join()
+
+  defp process(digits, phase, end_phase) do
+    1..length(digits)
+    |> Task.async_stream(fn i ->
+      pattern =
+        @repeats
+        |> Enum.flat_map(&List.duplicate(&1, i))
+        |> Stream.cycle()
+        |> Stream.drop(1)
+
+      digits
+      |> Enum.zip(pattern)
+      # |> IO.inspect()
+      |> Enum.map(fn {x, y} -> x * y end)
+      |> Enum.sum()
+      |> rem(10)
+      |> abs()
+    end)
+    |> Enum.map(fn {:ok, n} -> n end)
+    |> process(phase + 1, end_phase)
+  end
+
+  defp to_digits(input), do: input |> String.trim() |> String.to_integer() |> Integer.digits(10)
+end
+```
+
+```elixir
+Part1.process(input, 100)
+```
+
+```elixir
+res =
+  "61149209901509512443565181061452637593902744025151469396617100757301071711339649817474122888556040222485366200296368212232659761630401456279143978629121810602120751047614599695411767473819994830757336157458574326179455322201907650231782764500428969412770596566194902306483343875386765632085466464886129706622259217681792532273004282063547810635753890103567594381965111956537506894756745599869670888899057133375504649392703515785844527288062727335854950293957492711485610170842798737778064518035131758213120504627849113979296726930468346054637076092743046413161739355456355205632724895532581444351957835951916211123579715661044001207022107451419669114"
+
+for(<<r::binary-8 <- res>>, do: r)
+|> Enum.frequencies()
+|> Enum.reject(fn {_, c} -> c == 1 end)
+```
+
+## Part 2
+
+```elixir
+String.length(input)
+```
+
+```elixir
+defmodule Part2 do
+  @repeats [0, 1, 0, -1]
+  @end_phase 100
+  @times 10_000
+
+  def solve(input) do
+    message_offset = input |> String.slice(0, 7) |> String.to_integer()
+
+    input
+    |> to_digits()
+    |> List.duplicate(@times)
+    |> List.flatten()
+    |> process(0, @end_phase, message_offset)
+  end
+
+  defp process(result, end_phase, end_phase, offset),
+    do: result |> Enum.slice(offset, 8)
+
+  defp process(digits, phase, end_phase, offset) do
+    1..length(digits)
+    |> Enum.map(fn i ->
+      digits
+      |> Stream.zip(pattern_cycle(i))
+      |> Task.async_stream(fn {x, y} -> x * y end, ordered: false)
+      |> Enum.map(fn {:ok, n} -> n end)
+      |> Enum.sum()
+      |> rem(10)
+      |> abs()
+    end)
+    |> IO.inspect()
+    # |> Enum.map(fn {:ok, n} -> n end)
+    |> process(phase + 1, end_phase, offset)
+  end
+
+  defp to_digits(input), do: input |> String.trim() |> String.to_integer() |> Integer.digits(10)
+
+  defp pattern_cycle(digit) do
+    @repeats
+    |> Stream.flat_map(&List.duplicate(&1, digit))
+    |> Stream.cycle()
+    |> Stream.drop(1)
+  end
+end
+```
+
+```elixir
+input4 = """
+03036732577212944063491565474664
+"""
+```
+
+```elixir
+Part2.solve(input4)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2-2
+
+```elixir
+defmodule Part2 do
+  @repeats [0, 1, 0, -1]
+  @end_phase 100
+  @times 10_000
+
+  def solve(input) do
+    message_offset = input |> String.slice(0, 7) |> String.to_integer()
+    pattern_map = make_digit_pattern_map(String.length(input) - 1)
+
+    input
+    |> to_digits_map()
+    |> process(0, @end_phase, pattern_map, message_offset)
+  end
+
+  defp process(result, end_phase, end_phase, _pattern_map, offset),
+    do: offset..(offset + 7) |> Enum.map(&result[&1])
+
+  defp process(digits_map, phase, end_phase, pattern_map, offset) do
+    pattern_map
+    |> Enum.map(fn {i, pattern} ->
+      pattern
+      |> Enum.map(fn {d, p} ->
+        digits_map[d] * p
+      end)
+      |> Enum.sum()
+      |> abs()
+      |> rem(10)
+      |> then(&{i, &1})
+    end)
+    # |> Enum.map(fn {:ok, r} -> r end)
+    |> Enum.into(%{})
+    |> IO.inspect()
+    |> process(phase, end_phase, pattern_map, offset)
+  end
+
+  defp to_digits_map(input),
+    do:
+      input
+      |> String.trim()
+      |> String.to_integer()
+      |> Integer.digits(10)
+      |> List.duplicate(@times)
+      |> Enum.concat()
+      |> Enum.with_index(1)
+      |> Enum.into(%{})
+
+  defp make_digit_pattern_map(len) do
+    1..len
+    |> Enum.into(%{}, fn i ->
+      @repeats
+      |> Stream.flat_map(&List.duplicate(&1, i))
+      |> Stream.cycle()
+      |> Stream.drop(1)
+      |> Stream.with_index(1)
+      |> Enum.filter(fn {v, _} -> v != 0 end)
+      |> Enum.into(%{}, fn {v, k} -> {k, v} end)
+      |> then(&{i, &1})
+    end)
+    |> IO.inspect()
+  end
+end
+```
+
+```elixir
+input4 = """
+03036732577212944063491565474664
+"""
+
+Part2.solve(input4)
+```
