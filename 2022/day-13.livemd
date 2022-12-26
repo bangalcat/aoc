@@ -1,0 +1,110 @@
+# 2022 - day 13
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+input_1 = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule Part1 do
+  def solve(input) do
+    input
+    |> String.split("\n")
+    |> Enum.map(fn line -> Code.string_to_quoted!(line) end)
+    |> Enum.chunk_every(2, 3)
+    |> Enum.with_index(1)
+    |> Enum.flat_map(fn {[left, right], i} ->
+      case check_order(left, right) do
+        :right -> [i]
+        _ -> []
+      end
+    end)
+    |> Enum.sum()
+  end
+
+  def check_order(left, right) when is_integer(left) and is_integer(right) do
+    cond do
+      left < right -> :right
+      left == right -> :cont
+      true -> :not_right
+    end
+  end
+
+  def check_order(left, right) when is_integer(left), do: check_order([left], right)
+  def check_order(left, right) when is_integer(right), do: check_order(left, [right])
+  def check_order([], [_ | _]), do: :right
+  def check_order([_ | _], []), do: :not_right
+  def check_order([], []), do: :cont
+
+  def check_order([l | lrest], [r | rrest]) do
+    case check_order(l, r) do
+      :cont -> check_order(lrest, rrest)
+      otherwise -> otherwise
+    end
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Part1.solve()
+```
+
+```elixir
+defmodule Comparator do
+  @spec compare(list() | integer(), list() | integer()) :: :lt | :gt | :eq
+  def compare(left, right) when is_integer(left) and is_integer(right) do
+    cond do
+      left < right -> :lt
+      left == right -> :eq
+      true -> :gt
+    end
+  end
+
+  def compare(left, right) when is_integer(left), do: compare([left], right)
+  def compare(left, right) when is_integer(right), do: compare(left, [right])
+  def compare([], [_ | _]), do: :lt
+  def compare([_ | _], []), do: :gt
+  def compare([], []), do: :eq
+
+  def compare([l | lrest], [r | rrest]) do
+    case compare(l, r) do
+      :eq -> compare(lrest, rrest)
+      otherwise -> otherwise
+    end
+  end
+end
+
+defmodule Part2 do
+  def solve(input) do
+    input
+    |> String.split("\n")
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(fn line -> Code.string_to_quoted!(line) end)
+    |> List.insert_at(0, [[2]])
+    |> List.insert_at(0, [[6]])
+    |> Enum.sort(Comparator)
+    |> find_dividers()
+  end
+
+  defp find_dividers(list) do
+    first = Enum.find_index(list, &(&1 == [[2]])) + 1
+    second = Enum.find_index(list, &(&1 == [[6]])) + 1
+    first * second
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Part2.solve()
+```

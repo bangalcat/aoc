@@ -1,0 +1,69 @@
+# 2022 - day 6
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Section
+
+```elixir
+input_1 = Kino.Input.textarea("")
+```
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule Part1 do
+  defguardp is_all_uniq(a, b, c, d) when a not in [b, c, d] and b not in [c, d] and c != d
+
+  def solve(input) do
+    input
+    |> String.graphemes()
+    |> Enum.reduce_while({{}, 0}, fn
+      _c, {{a1, a2, a3, a4}, cnt} when is_all_uniq(a1, a2, a3, a4) ->
+        {:halt, cnt}
+
+      c, {{_, _, _, _} = window, cnt} ->
+        new_window =
+          window
+          |> Tuple.delete_at(0)
+          |> Tuple.append(c)
+
+        {:cont, {new_window, cnt + 1}}
+
+      c, {not_enough_window, cnt} ->
+        {:cont,
+         {not_enough_window
+          |> Tuple.append(c), cnt + 1}}
+    end)
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Part1.solve()
+```
+
+```elixir
+defmodule Part2 do
+  def solve(input) do
+    input
+    |> String.graphemes()
+    |> Stream.chunk_every(14, 1)
+    |> Enum.find_index(&all_uniq?/1)
+    |> Kernel.+(14)
+  end
+
+  defp all_uniq?(list) do
+    Enum.uniq(list) == list
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Part2.solve()
+```

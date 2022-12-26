@@ -1,0 +1,37 @@
+# Aoc 2022 - Day 1
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.split("\n")
+|> Enum.chunk_while(
+  [],
+  fn elem, acc ->
+    if elem == "" do
+      {:cont, Enum.reverse(acc), []}
+    else
+      {:cont, [elem | acc]}
+    end
+  end,
+  fn
+    [] -> {:cont, []}
+    acc -> {:cont, Enum.reverse(acc), []}
+  end
+)
+|> Enum.map(&Enum.reduce(&1, 0, fn s, acc -> String.to_integer(s) + acc end))
+|> Enum.sort(:desc)
+|> Enum.take(3)
+|> Enum.sum()
+```

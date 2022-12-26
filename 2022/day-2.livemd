@@ -1,0 +1,81 @@
+# 2022 Day 2
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule Part1 do
+  def solve(input) do
+    input
+    |> String.split([" ", "\n"])
+    |> Enum.chunk_every(2)
+    |> Enum.map(fn [opp, me] ->
+      score(me) + game_score(opp, me)
+    end)
+    |> Enum.sum()
+  end
+
+  defp score("X"), do: 1
+  defp score("Y"), do: 2
+  defp score("Z"), do: 3
+
+  defp game_score("A", "X"), do: 3
+  defp game_score("A", "Y"), do: 6
+  defp game_score("A", "Z"), do: 0
+  #
+  defp game_score("B", "X"), do: 0
+  defp game_score("B", "Y"), do: 3
+  defp game_score("B", "Z"), do: 6
+  #
+  defp game_score("C", "X"), do: 6
+  defp game_score("C", "Y"), do: 0
+  defp game_score("C", "Z"), do: 3
+end
+
+input
+|> Kino.Input.read()
+|> Part1.solve()
+```
+
+```elixir
+defmodule Part2 do
+  def solve(input) do
+    input
+    |> String.split([" ", "\n"])
+    |> Enum.chunk_every(2)
+    |> Enum.map(fn [opp, me] ->
+      score(opp, me) + game_score(me)
+    end)
+    |> Enum.sum()
+  end
+
+  defp game_score("X"), do: 0
+  defp game_score("Y"), do: 3
+  defp game_score("Z"), do: 6
+
+  defp score("A", "X"), do: 3
+  defp score("A", "Y"), do: 1
+  defp score("A", "Z"), do: 2
+  #
+  defp score("B", "X"), do: 1
+  defp score("B", "Y"), do: 2
+  defp score("B", "Z"), do: 3
+  #
+  defp score("C", "X"), do: 2
+  defp score("C", "Y"), do: 3
+  defp score("C", "Z"), do: 1
+end
+
+input
+|> Kino.Input.read()
+|> Part2.solve()
+```

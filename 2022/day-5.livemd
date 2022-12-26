@@ -1,0 +1,102 @@
+# 2022 - day 5
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Section
+
+```elixir
+input_1 = Kino.Input.textarea("")
+```
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule Part1 do
+  def parse(input) do
+    [stack_input, oper_input] = :binary.split(input, "\n\n")
+    {parse_stacks(stack_input), parse_operations(oper_input)}
+  end
+
+  defp parse_stacks(stack_input) do
+    {lines, [_last]} = String.split(stack_input, "\n") |> Enum.split(-1)
+    # numbers = last |> String.split(" ", trim: true) |> Enum.map(&String.to_integer/1)
+    # len = length(numbers)
+    lines
+    |> Stream.map(
+      &(String.graphemes(&1)
+        |> tl()
+        |> Enum.take_every(4))
+    )
+    |> Stream.zip_with(& &1)
+    |> Stream.map(fn stack -> Enum.reject(stack, &(&1 == " ")) end)
+    |> Stream.with_index(1)
+    |> Map.new(fn {st, i} -> {i, st} end)
+  end
+
+  defp parse_operations(oper_input) do
+    String.split(oper_input, "\n")
+    |> Stream.map(&String.split(&1, ["move ", " from ", " to "], trim: true))
+    |> Enum.map(&Enum.map(&1, fn n -> String.to_integer(n) end))
+  end
+
+  def simulate({stacks, operations}) do
+    operations
+    |> Enum.reduce(stacks, fn
+      [cnt, from, to], stack_acc ->
+        move(stack_acc, from, to, cnt)
+    end)
+  end
+
+  defp move(stacks, from, to, cnt) do
+    {moving, from_rest} = stacks[from] |> Enum.split(cnt)
+
+    stacks
+    |> Map.put(from, from_rest)
+    |> Map.put(to, Enum.reverse(moving) ++ stacks[to])
+  end
+
+  def tops_of_stack(stacks) do
+    stacks
+    |> Enum.sort()
+    |> Enum.map_join(fn {_, st} -> hd(st) end)
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Part1.parse()
+|> Part1.simulate()
+|> Part1.tops_of_stack()
+```
+
+```elixir
+defmodule Part2 do
+  def simulate({stacks, operations}) do
+    operations
+    |> Enum.reduce(stacks, fn
+      [cnt, from, to], stack_acc ->
+        move(stack_acc, from, to, cnt)
+    end)
+  end
+
+  defp move(stacks, from, to, cnt) do
+    {moving, from_rest} = stacks[from] |> Enum.split(cnt)
+
+    stacks
+    |> Map.put(from, from_rest)
+    |> Map.put(to, moving ++ stacks[to])
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Part1.parse()
+|> Part2.simulate()
+|> Part1.tops_of_stack()
+```

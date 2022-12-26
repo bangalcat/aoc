@@ -1,0 +1,127 @@
+# aoc 2022 - day 14
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Section
+
+```elixir
+input_1 = Kino.Input.textarea("")
+```
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule Rocks do
+  def parse(input) do
+    input
+    |> String.split("\n")
+    |> Enum.reduce(%{}, fn line, grid ->
+      String.split(line, [" -> ", ","])
+      |> Enum.chunk_every(2)
+      |> Enum.map(fn [xs, ys] ->
+        x = String.to_integer(xs)
+        y = String.to_integer(ys)
+        {x, y}
+      end)
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.reduce(grid, fn [{sx, sy}, {ex, ey}], grid ->
+        for x <- sx..ex, y <- sy..ey, reduce: grid do
+          g ->
+            Map.put(g, {x, y}, :rock)
+        end
+      end)
+    end)
+  end
+end
+
+input_1
+|> Kino.Input.read()
+|> Rocks.parse()
+```
+
+```elixir
+defmodule Part1 do
+  def solve(grid, start) do
+    bottom = grid |> Enum.map(fn {{_, y}, _} -> y end) |> Enum.max()
+
+    fall(start, grid, bottom, start)
+    |> count_sands()
+  end
+
+  @spec fall({integer(), integer()}, map(), integer(), {integer(), integer()}) :: map()
+  def fall({_x, y}, grid, bottom, _start) when y > bottom, do: grid
+
+  def fall({x, y}, grid, bottom, start) do
+    cond do
+      grid[{x, y + 1}] == nil ->
+        fall({x, y + 1}, grid, bottom, start)
+
+      grid[{x - 1, y + 1}] == nil ->
+        fall({x - 1, y + 1}, grid, bottom, start)
+
+      grid[{x + 1, y + 1}] == nil ->
+        fall({x + 1, y + 1}, grid, bottom, start)
+
+      true ->
+        next_grid = Map.put(grid, {x, y}, :sand)
+        fall(start, next_grid, bottom, start)
+    end
+  end
+
+  defp count_sands(grid), do: grid |> Map.values() |> Enum.count(&(&1 == :sand))
+end
+
+input
+|> Kino.Input.read()
+|> Rocks.parse()
+|> Part1.solve({500, 0})
+```
+
+```elixir
+defmodule Part2 do
+  def solve(grid, start) do
+    bottom = grid |> Enum.map(fn {{_, y}, _} -> y end) |> Enum.max()
+
+    fall(start, grid, bottom + 2, start)
+    |> count_sands()
+  end
+
+  @spec fall({integer(), integer()}, map(), integer(), {integer(), integer()}) :: map()
+  def fall({x, y}, grid, _floor, _start) when is_map_key(grid, {x, y}), do: grid
+
+  def fall({x, y}, grid, floor, start) when y + 1 == floor do
+    next_grid = Map.put(grid, {x, y}, :sand)
+    fall(start, next_grid, floor, start)
+  end
+
+  def fall({x, y}, grid, floor, start) do
+    cond do
+      grid[{x, y + 1}] == nil ->
+        fall({x, y + 1}, grid, floor, start)
+
+      grid[{x - 1, y + 1}] == nil ->
+        fall({x - 1, y + 1}, grid, floor, start)
+
+      grid[{x + 1, y + 1}] == nil ->
+        fall({x + 1, y + 1}, grid, floor, start)
+
+      true ->
+        next_grid = Map.put(grid, {x, y}, :sand)
+        fall(start, next_grid, floor, start)
+    end
+  end
+
+  defp count_sands(grid), do: grid |> Map.values() |> Enum.count(&(&1 == :sand))
+end
+
+input_1
+|> Kino.Input.read()
+|> Rocks.parse()
+|> Part2.solve({500, 0})
+```

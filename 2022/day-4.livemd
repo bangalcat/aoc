@@ -1,0 +1,51 @@
+# 2022 day - 4
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule Part1 do
+  def solve(input) do
+    input
+    |> String.split(["\n", ",", "-"])
+    |> Enum.map(&String.to_integer/1)
+    |> Enum.chunk_every(4)
+    |> Enum.filter(fn [fs, fe, ss, se] ->
+      (fs <= ss && fe >= se) || (fs >= ss && fe <= se)
+    end)
+    |> Enum.count()
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Part1.solve()
+```
+
+```elixir
+defmodule Part2 do
+  def solve(input) do
+    input
+    |> String.split(["\n", ",", "-"])
+    |> Enum.map(&String.to_integer/1)
+    |> Enum.chunk_every(4)
+    |> Enum.reject(fn [fs, fe, ss, se] ->
+      Range.disjoint?(fs..fe, ss..se)
+    end)
+    |> Enum.count()
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Part2.solve()
+```

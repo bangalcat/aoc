@@ -1,0 +1,131 @@
+# 2022 - day 8
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+input_1 = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule Part1 do
+  def parse(input) do
+    grid =
+      input
+      |> String.split("\n")
+      |> Enum.with_index(1)
+      |> Enum.reduce(%{}, fn {line, row_n}, grid ->
+        String.graphemes(line)
+        |> Enum.with_index(1)
+        |> Enum.reduce(grid, fn {height, col_n}, grid ->
+          grid
+          |> Map.put({row_n, col_n}, String.to_integer(height))
+        end)
+      end)
+
+    {row, col} = Map.keys(grid) |> Enum.max()
+    {grid, {row, col}}
+  end
+
+  def count_visible({grid, {row, col}}) do
+    [
+      filter_visible({1, 1}, {1, col}, :top, grid),
+      filter_visible({row, 1}, {row, col}, :bottom, grid),
+      filter_visible({1, col}, {row, col}, :left, grid),
+      filter_visible({1, 1}, {row, 1}, :right, grid)
+    ]
+    |> Enum.reduce(&MapSet.union(&1, &2))
+  end
+
+  def filter_visible({sr, sc}, {er, ec}, direction, grid) do
+    for r <- sr..er, c <- sc..ec, reduce: MapSet.new() do
+      acc ->
+        acc = MapSet.put(acc, {r, c})
+        do_filter_visible({r, c}, dir(direction), grid, acc, grid[{r, c}])
+    end
+  end
+
+  defp do_filter_visible({r, c}, {dr, dc}, grid, acc, _cur_max_height)
+       when not is_map_key(grid, {r + dr, c + dc}),
+       do: acc
+
+  defp do_filter_visible({r, c}, {dr, dc}, grid, acc, max_height) do
+    new_acc =
+      if max_height < grid[{r + dr, c + dc}] do
+        acc |> MapSet.put({r + dr, c + dc})
+      else
+        acc
+      end
+
+    new_max_height = max(grid[{r + dr, c + dc}], max_height)
+    do_filter_visible({r + dr, c + dc}, {dr, dc}, grid, new_acc, new_max_height)
+  end
+
+  defp dir(:top), do: {1, 0}
+  defp dir(:bottom), do: {-1, 0}
+  defp dir(:right), do: {0, 1}
+  defp dir(:left), do: {0, -1}
+end
+
+input
+|> Kino.Input.read()
+|> Part1.parse()
+|> Part1.count_visible()
+|> MapSet.size()
+|> dbg()
+```
+
+```elixir
+defmodule Part2 do
+  def solve({grid, {rown, coln}}) do
+    for r <- 1..rown, c <- 1..coln do
+      scenic_scores({r, c}, grid)
+    end
+    |> Enum.max()
+  end
+
+  def scenic_scores({r, c}, grid) do
+    for d <- [:up, :down, :left, :right] do
+      count_visible({r, c}, dir(d), grid[{r, c}], grid)
+    end
+    |> Enum.product()
+  end
+
+  defp count_visible({sr, sc}, {dr, dc}, height, grid) do
+    Stream.iterate({sr + dr, sc + dc}, fn {r, c} -> {r + dr, c + dc} end)
+    |> Enum.reduce_while(0, fn
+      {r, c}, cnt ->
+        cond do
+          not is_map_key(grid, {r, c}) ->
+            {:halt, cnt}
+
+          grid[{r, c}] >= height ->
+            {:halt, cnt + 1}
+
+          true ->
+            {:cont, cnt + 1}
+        end
+    end)
+  end
+
+  defp dir(:up), do: {-1, 0}
+  defp dir(:down), do: {1, 0}
+  defp dir(:right), do: {0, 1}
+  defp dir(:left), do: {0, -1}
+end
+
+input
+|> Kino.Input.read()
+|> Part1.parse()
+|> Part2.solve()
+|> dbg()
+```

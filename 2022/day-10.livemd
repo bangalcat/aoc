@@ -1,0 +1,156 @@
+# 2022 - day 10
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Section
+
+```elixir
+input_1 = Kino.Input.textarea("")
+```
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule SignalMonitor do
+  defstruct instructions: nil, curr_cycle: 1, curr_x: 1, trails: []
+
+  def parse(inputs) do
+    inputs
+    |> Stream.map(&String.split(&1, " "))
+    |> Enum.map(fn
+      ["addx", v] -> {:addx, String.to_integer(v)}
+      ["noop"] -> :noop
+    end)
+  end
+
+  def simulate(instructions) do
+    state = %__MODULE__{
+      instructions: instructions
+    }
+
+    do_simulate(state)
+  end
+
+  defp do_simulate(%__MODULE__{instructions: []} = state), do: state
+
+  defp do_simulate(state) do
+    state
+    |> go()
+    |> trail_cycles()
+    |> do_simulate()
+  end
+
+  defp go(%__MODULE__{instructions: []} = state), do: state
+
+  defp go(state) do
+    %__MODULE__{instructions: [h | rest], curr_cycle: cycle} = state
+
+    case h do
+      :noop ->
+        %{state | instructions: rest, curr_cycle: cycle + 1}
+
+      {:addx, v} ->
+        %{state | instructions: [{:addx_done, v} | rest], curr_cycle: cycle + 1}
+
+      {:addx_done, v} ->
+        %{state | instructions: rest, curr_cycle: cycle + 1, curr_x: state.curr_x + v}
+    end
+  end
+
+  defp trail_cycles(%__MODULE__{curr_cycle: cycle} = state) when cycle in 20..300//40 do
+    %{state | trails: [state.curr_x * cycle | state.trails]}
+  end
+
+  defp trail_cycles(state), do: state
+end
+
+input
+|> Kino.Input.read()
+|> String.split("\n")
+|> SignalMonitor.parse()
+|> SignalMonitor.simulate()
+|> then(&(&1.trails |> Enum.sum()))
+```
+
+```elixir
+defmodule SignalMonitor2 do
+  defstruct instructions: nil, curr_cycle: 1, curr_x: 1, trails: [], pixels: ""
+
+  def parse(inputs) do
+    inputs
+    |> Stream.map(&String.split(&1, " "))
+    |> Enum.map(fn
+      ["addx", v] -> {:addx, String.to_integer(v)}
+      ["noop"] -> :noop
+    end)
+  end
+
+  def simulate(instructions) do
+    state = %__MODULE__{
+      instructions: instructions
+    }
+
+    do_simulate(state)
+  end
+
+  defp do_simulate(%__MODULE__{instructions: []} = state), do: state
+
+  defp do_simulate(state) do
+    state
+    |> draw()
+    |> go()
+    |> do_simulate()
+  end
+
+  defp go(%__MODULE__{instructions: []} = state), do: state
+
+  defp go(state) do
+    %__MODULE__{instructions: [h | rest], curr_cycle: cycle} = state
+
+    case h do
+      :noop ->
+        %{state | instructions: rest, curr_cycle: cycle + 1}
+
+      {:addx, v} ->
+        %{state | instructions: [{:addx_done, v} | rest], curr_cycle: cycle + 1}
+
+      {:addx_done, v} ->
+        %{state | instructions: rest, curr_cycle: cycle + 1, curr_x: state.curr_x + v}
+    end
+  end
+
+  defp draw(state) do
+    %__MODULE__{curr_cycle: cycle, curr_x: x} = state
+
+    c =
+      if abs(x - rem(cycle - 1, 40)) <= 1 do
+        "#"
+      else
+        "."
+      end
+
+    %{state | pixels: state.pixels <> c}
+  end
+
+  def visualize(state) do
+    for <<line::binary-40 <- state.pixels>> do
+      line
+    end
+    |> Enum.join("\n")
+    |> IO.puts()
+  end
+end
+
+input
+|> Kino.Input.read()
+|> String.split("\n")
+|> SignalMonitor2.parse()
+|> SignalMonitor2.simulate()
+|> SignalMonitor2.visualize()
+```

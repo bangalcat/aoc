@@ -1,0 +1,133 @@
+# 2022 - day 12
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Section
+
+```elixir
+input_1 = Kino.Input.textarea("")
+```
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule Grid do
+  def parse(input) do
+    input
+    |> String.split("\n")
+    |> Enum.with_index()
+    |> Enum.flat_map_reduce({nil, nil}, fn {line, r}, {st, ed} ->
+      line
+      |> String.to_charlist()
+      |> Enum.with_index()
+      |> Enum.map_reduce({st, ed}, fn
+        {?S, c}, {_st, ed} ->
+          {{{r, c}, ?a}, {{r, c}, ed}}
+
+        {?E, c}, {st, _ed} ->
+          {{{r, c}, ?z}, {st, {r, c}}}
+
+        {e, c}, st_ed ->
+          {{{r, c}, e}, st_ed}
+      end)
+    end)
+    |> then(fn {grid, st_ed} -> {Enum.into(grid, %{}), st_ed} end)
+  end
+end
+
+input_1
+|> Kino.Input.read()
+|> Grid.parse()
+```
+
+```elixir
+
+```
+
+```elixir
+defmodule PathFinder do
+  @dirs [{0, 1}, {1, 0}, {0, -1}, {-1, 0}]
+  def run({grid, {st, ed}}) do
+    # queue
+    # bfs, visit map
+    # 
+    {mr, mc} = Map.keys(grid) |> Enum.max()
+    visit_map = %{st => 0}
+    in_range_fn = &in_range?(&1, mr, mc)
+    go([st], ed, grid, visit_map, in_range_fn)
+  end
+
+  defp go([], ed, _grid, visit_map, _in_range_fn), do: visit_map[ed] || :infinity
+
+  defp go([ed | _], ed, _grid, visit_map, _in_range_fn), do: visit_map[ed]
+
+  defp go([{r, c} | rest], ed, grid, visit_map, in_range_fn) do
+    cur = visit_map[{r, c}]
+
+    {next_visit_map, next_targets} =
+      for {dr, dc} <- @dirs,
+          {nr, nc} = {r + dr, c + dc},
+          in_range_fn.({nr, nc}),
+          grid[{nr, nc}] <= grid[{r, c}] + 1,
+          is_nil(visit_map[{nr, nc}]) or visit_map[{nr, nc}] > cur + 1,
+          reduce: {visit_map, []} do
+        {v_map, nxts} ->
+          {Map.put(v_map, {nr, nc}, cur + 1), [{nr, nc} | nxts]}
+      end
+
+    go(rest ++ next_targets, ed, grid, next_visit_map, in_range_fn)
+  end
+
+  defp in_range?({r, c}, mr, mc) do
+    r >= 0 and r <= mr and c >= 0 and c <= mc
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Grid.parse()
+|> PathFinder.run()
+```
+
+```elixir
+defmodule Grid2 do
+  def parse(input) do
+    input
+    |> String.split("\n")
+    |> Enum.with_index()
+    |> Enum.flat_map_reduce({[], nil}, fn {line, r}, {st, ed} ->
+      line
+      |> String.to_charlist()
+      |> Enum.with_index()
+      |> Enum.map_reduce({st, ed}, fn
+        {?S, c}, {sts, ed} ->
+          {{{r, c}, ?a}, {[{r, c} | sts], ed}}
+
+        {?E, c}, {sts, _ed} ->
+          {{{r, c}, ?z}, {sts, {r, c}}}
+
+        {?a, c}, {sts, ed} ->
+          {{{r, c}, ?a}, {[{r, c} | sts], ed}}
+
+        {e, c}, st_ed ->
+          {{{r, c}, e}, st_ed}
+      end)
+    end)
+    |> then(fn {grid, st_ed} -> {Enum.into(grid, %{}), st_ed} end)
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Grid2.parse()
+|> then(fn {grid, {sts, ed}} ->
+  for st <- sts, do: PathFinder.run({grid, {st, ed}})
+end)
+|> Enum.min()
+```

@@ -1,0 +1,151 @@
+# 2022 - day 11
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+input_1 = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule Parser do
+  def parse(input) do
+    input
+    |> String.split("\n\n")
+    |> Enum.map(&parse_one/1)
+    |> Map.new(&{&1.id, &1})
+  end
+
+  defp parse_one(input) do
+    [title_line, start_items_line, operation_line, test_pred_line, if_true_line, if_false_line] =
+      String.split(input, "\n", trim: true)
+
+    {divisible, test_fn} = parse_test(test_pred_line)
+
+    %{
+      id: parse_index(title_line),
+      start_items: parse_start_items(start_items_line),
+      operation: parse_operation(operation_line),
+      test_fn: test_fn,
+      divisible: divisible,
+      if_true: parse_if_true_statement(if_true_line),
+      if_false: parse_if_false_statement(if_false_line),
+      total: 0
+    }
+  end
+
+  defp parse_index("Monkey " <> n) do
+    {num, _} = Integer.parse(n)
+    num
+  end
+
+  defp parse_start_items("  Starting items: " <> items) do
+    items
+    |> String.split(", ", trim: true)
+    |> Enum.map(&String.to_integer/1)
+  end
+
+  defp parse_operation("  Operation: new = " <> predicate) do
+    [x, oper, y] =
+      predicate
+      |> String.split(" ", trim: true)
+
+    fn v ->
+      x = parse_var(x, v)
+      y = parse_var(y, v)
+      calc(x, y, oper)
+    end
+  end
+
+  defp calc(x, y, "+"), do: x + y
+  defp calc(x, y, "*"), do: x * y
+  defp calc(x, y, "-"), do: x - y
+  defp calc(x, y, "/"), do: x / y
+
+  defp parse_var("old", v), do: v
+  defp parse_var(x, _v), do: x |> String.trim() |> String.to_integer()
+
+  defp parse_test("  Test: divisible by " <> n) do
+    n = String.to_integer(n)
+    {n, fn i -> rem(i, n) == 0 end}
+  end
+
+  defp parse_if_true_statement("    If true: throw to monkey " <> n) do
+    String.to_integer(n)
+  end
+
+  defp parse_if_false_statement("    If false: throw to monkey " <> n) do
+    String.to_integer(n)
+  end
+end
+
+monkeys =
+  input_1
+  |> Kino.Input.read()
+  |> Parser.parse()
+```
+
+```elixir
+defmodule Simulator do
+  def simulate(monkeys, rounds, problem_part) do
+    total_divisible = multiplied_divisible(monkeys)
+
+    1..rounds
+    |> Enum.reduce(monkeys, fn _, mks ->
+      simulate_round(mks, {problem_part, total_divisible})
+    end)
+  end
+
+  defp multiplied_divisible(monkeys) do
+    monkeys
+    |> Map.values()
+    |> Enum.map(& &1.divisible)
+    |> Enum.product()
+  end
+
+  def simulate_round(monkeys, problem_part) do
+    monkeys
+    |> Map.keys()
+    |> Enum.reduce(monkeys, fn id, monkeys ->
+      simulate_one(monkeys[id], monkeys, problem_part)
+    end)
+  end
+
+  def simulate_one(%{start_items: []} = _monkey, monkeys, _), do: monkeys
+
+  def simulate_one(monkey, org_monkeys, problem_part) do
+    monkey.start_items
+    |> Enum.reduce(org_monkeys, fn n, monkeys ->
+      item = monkey.operation.(n) |> relief(problem_part)
+
+      case monkey.test_fn.(item) do
+        true -> update_in(monkeys[monkey.if_true].start_items, &(&1 ++ [item]))
+        false -> update_in(monkeys[monkey.if_false].start_items, &(&1 ++ [item]))
+      end
+    end)
+    |> update_in([monkey.id, :start_items], fn _ -> [] end)
+    |> update_in([monkey.id, :total], fn t -> t + length(monkey.start_items) end)
+  end
+
+  def relief(worry_level, {:part_1, _}), do: worry_level |> div(3)
+  def relief(worry_level, {:part_2, m}), do: worry_level |> rem(m)
+end
+
+input
+|> Kino.Input.read()
+|> Parser.parse()
+|> Simulator.simulate(10000, :part_2)
+|> Enum.map(fn {_, mk} -> mk.total end)
+|> Enum.sort(:desc)
+|> Enum.take(2)
+|> Enum.product()
+```

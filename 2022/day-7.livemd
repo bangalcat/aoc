@@ -1,0 +1,204 @@
+# 2022 - day 7
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+input_1 = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule Parser do
+  def parse(input) do
+    input
+    |> String.split("\n")
+    |> Enum.map(&parse_line/1)
+  end
+
+  defp parse_line("$ " <> command) do
+    case command do
+      "cd /" ->
+        {:command, :go_root}
+
+      "cd .." ->
+        {:command, :go_parent}
+
+      "cd " <> x ->
+        {:command, {:go, x}}
+
+      "ls" <> _ ->
+        {:command, :list}
+    end
+  end
+
+  defp parse_line(line) do
+    case :binary.split(line, " ") do
+      ["dir", dir] ->
+        {:output, {:dir, dir}}
+
+      [size, file] ->
+        {:output, {:file, file, String.to_integer(size)}}
+    end
+  end
+
+  @spec execute(list()) :: FileTreeZipper.loc()
+  def execute(outputs) do
+    do_execute(outputs, FileTreeZipper.new())
+  end
+
+  defp do_execute([], location), do: location |> FileTreeZipper.root()
+
+  defp do_execute([{:command, command} | rest], location) do
+    case command do
+      :go_root ->
+        do_execute(rest, FileTreeZipper.root(location))
+
+      :go_parent ->
+        do_execute(rest, FileTreeZipper.up(location))
+
+      {:go, child} ->
+        do_execute(rest, FileTreeZipper.child(location, child))
+
+      :list ->
+        {files, rest} = Enum.split_while(rest, &match?({:output, _}, &1))
+        location = FileTreeZipper.insert_children(location, files |> Enum.map(&elem(&1, 1)))
+        do_execute(rest, location)
+    end
+  end
+
+  @spec filter_dirs(FileTreeZipper.tree(), integer()) :: [{binary(), integer()}]
+  def filter_dirs({nil, _}, _limit), do: []
+
+  def filter_dirs({subtree, {name, size}}, limit) do
+    sub_acc =
+      subtree
+      |> Map.values()
+      |> Enum.flat_map(&filter_dirs(&1, limit))
+
+    if size <= limit do
+      [{name, size} | sub_acc]
+    else
+      sub_acc
+    end
+  end
+
+  @spec find_least_deletable(FileTreeZipper.loc(), total :: integer(), need :: integer()) ::
+          {binary(), integer()}
+  def find_least_deletable(loc, total, need) do
+    {tree, _} = FileTreeZipper.root(loc)
+
+    {_, {_, root_space}} = tree
+    do_find_least_deletable(tree, total - root_space, need)
+  end
+
+  defp do_find_least_deletable({_subtree, {_name, size}}, curr_space, need)
+       when curr_space + size < need do
+    nil
+  end
+
+  defp do_find_least_deletable({subtree, {name, size}}, curr_space, need) do
+    (subtree || %{})
+    |> Map.values()
+    |> Enum.map(&do_find_least_deletable(&1, curr_space, need))
+    |> Enum.reject(&is_nil/1)
+    |> List.insert_at(0, {name, size})
+    |> Enum.min_by(&elem(&1, 1))
+  end
+end
+
+defmodule FileTreeZipper do
+  @type ctx :: {binary(), tree()}
+  @type tree :: {subtree :: %{binary() => tree()}, value :: {binary(), integer()}}
+  @type loc :: {tree(), [ctx()]}
+  def new do
+    {{%{}, {"/", 0}}, []}
+  end
+
+  def insert_children({{_subtree, {name, size}}, ctxs}, children) do
+    {{make_children(children), {name, size + children_size(children)}}, ctxs}
+  end
+
+  defp make_children(list) do
+    list
+    |> Map.new(fn
+      {:dir, name} ->
+        {name, {nil, {name, 0}}}
+
+      {:file, name, size} ->
+        {name, {nil, {name, size}}}
+    end)
+  end
+
+  defp children_size(list) do
+    list
+    |> Enum.map(fn
+      {:dir, _name} -> 0
+      {:file, _name, size} -> size
+    end)
+    |> Enum.sum()
+  end
+
+  @spec child({tree(), [ctx()]}, binary()) :: {tree(), [ctx()]}
+  def child({{nil, _value}, ctxs}, child_name), do: {:not_found, child_name, ctxs}
+
+  def child({{subtree, _value} = tree, ctxs}, child_name) do
+    {subtree[child_name], [{child_name, tree} | ctxs]}
+  end
+
+  @spec up(loc()) :: loc()
+  def up({tree, []}), do: {tree, []}
+
+  # def up({tree, [{name, {st, value}} | rest]}) do
+  #   {{Map.put(st, name, tree), value}, rest}
+  # end
+
+  def up({tree, [{name, {suptree, {parent_name, _size}}} | rest]}) do
+    new_subtree = Map.put(suptree, name, tree)
+    {{new_subtree, {parent_name, sum_children_sizes(new_subtree)}}, rest}
+  end
+
+  defp sum_children_sizes(subtree) do
+    Enum.map(subtree, fn
+      {name, {_, {name, size}}} -> size
+    end)
+    |> Enum.sum()
+  end
+
+  @spec root(loc()) :: loc()
+  def root(loc) do
+    case up(loc) do
+      {tree, []} -> {tree, []}
+      parent -> root(parent)
+    end
+  end
+end
+```
+
+```elixir
+input
+|> Kino.Input.read()
+|> Parser.parse()
+|> Parser.execute()
+|> elem(0)
+|> Parser.filter_dirs(100_000)
+|> Enum.map(&elem(&1, 1))
+|> Enum.sum()
+```
+
+```elixir
+input
+|> Kino.Input.read()
+|> Parser.parse()
+|> Parser.execute()
+|> Parser.find_least_deletable(70_000_000, 30_000_000)
+|> dbg()
+```

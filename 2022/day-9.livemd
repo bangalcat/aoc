@@ -1,0 +1,273 @@
+# 2022 - day 9
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+input_2 = Kino.Input.textarea("")
+```
+
+```elixir
+input_1 = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule Part1 do
+  def simulate(motions) do
+    state = %{head: {0, 0}, tail: {0, 0}, motions: motions, tail_trails: [{0, 0}]}
+    do_simulate(state)
+  end
+
+  def count_trails(%{tail_trails: trails} = _state) do
+    Enum.uniq(trails)
+    |> Enum.count()
+  end
+
+  # state -> state
+  defp do_simulate(%{motions: []} = state), do: state
+
+  defp do_simulate(%{motions: [m | rest]} = state) do
+    {{head, tail}, trails} = move(state.head, state.tail, m)
+
+    state
+    |> Map.merge(%{
+      motions: rest,
+      head: head,
+      tail: tail,
+      tail_trails: trails ++ state.tail_trails
+    })
+    |> do_simulate()
+  end
+
+  # move head, follow tail
+  # dir UDRL, number
+  defp move(head, tail, {d, n}) do
+    1..n
+    |> Enum.reduce({{head, tail}, []}, fn _, {{h, t}, trails} ->
+      move_head(h, dir(d))
+      |> then(&follow_tail(t, &1, need_follow?(&1, t)))
+      |> maybe_append_trail(trails, t)
+    end)
+  end
+
+  defp move_head(head, {dx, dy}) do
+    {x, y} = head
+    {x + dx, y + dy}
+  end
+
+  defp follow_tail(tail, head, false = _need_follow?), do: {head, tail}
+
+  defp follow_tail(tail, head, true) do
+    {tx, ty} = tail
+    {dx, dy} = fdir(head, tail)
+    {head, {tx + dx, ty + dy}}
+  end
+
+  defp maybe_append_trail({head, tail}, trails, tail), do: {{head, tail}, trails}
+
+  defp maybe_append_trail({head, tail}, [tail | _] = trails, _old_tail) do
+    {{head, tail}, trails}
+  end
+
+  defp maybe_append_trail({head, tail}, trails, _) do
+    {{head, tail}, [tail | trails]}
+  end
+
+  defp dir("R"), do: {1, 0}
+  defp dir("L"), do: {-1, 0}
+  defp dir("U"), do: {0, 1}
+  defp dir("D"), do: {0, -1}
+
+  # which direction to follow head?
+  defp fdir(head, tail)
+
+  defp fdir({x, hy}, {x, ty}) do
+    if hy > ty do
+      {0, 1}
+    else
+      {0, -1}
+    end
+  end
+
+  defp fdir({hx, y}, {tx, y}) do
+    if hx > tx do
+      {1, 0}
+    else
+      {-1, 0}
+    end
+  end
+
+  defp fdir({hx, hy}, {tx, ty}) do
+    cond do
+      hx > tx and hy > ty ->
+        {1, 1}
+
+      hx > tx ->
+        {1, -1}
+
+      hy > ty ->
+        {-1, 1}
+
+      true ->
+        {-1, -1}
+    end
+  end
+
+  def need_follow?({hx, hy}, {tx, ty}) do
+    abs(hx - tx) > 1 or abs(hy - ty) > 1
+  end
+end
+
+input
+|> Kino.Input.read()
+|> String.split([" ", "\n"])
+|> Enum.chunk_every(2)
+|> Enum.map(fn [d, n] -> {d, String.to_integer(n)} end)
+|> Part1.simulate()
+|> Part1.count_trails()
+|> dbg()
+```
+
+```elixir
+defmodule Part2 do
+  def simulate(motions) do
+    state = %{
+      head: {0, 0},
+      tails: List.duplicate({0, 0}, 9),
+      motions: motions,
+      tail_trails: [{0, 0}]
+    }
+
+    do_simulate(state)
+  end
+
+  # state -> integer
+  def count_trails(%{tail_trails: trails} = _state) do
+    Enum.uniq(trails)
+    |> Enum.count()
+  end
+
+  # state -> state
+  defp do_simulate(%{motions: []} = state), do: state
+
+  defp do_simulate(%{motions: [m | rest]} = state) do
+    {{head, tails}, trails} = move(state.head, state.tails, m)
+
+    state
+    |> Map.merge(%{
+      motions: rest,
+      head: head,
+      tails: tails,
+      tail_trails: trails ++ state.tail_trails
+    })
+    |> do_simulate()
+  end
+
+  # move head, follow tail
+  # dir UDRL, number
+  defp move(head, tails, {d, n}) do
+    1..n
+    |> Enum.reduce({{head, tails}, []}, fn _, {{h, ts}, trails} ->
+      move_one(h, dir(d))
+      |> then(&{&1, follow_tails(ts, &1)})
+      |> maybe_append_trail(trails, List.last(ts))
+    end)
+  end
+
+  defp move_one(head, {dx, dy}) do
+    {x, y} = head
+    {x + dx, y + dy}
+  end
+
+  defp follow_tails(tails, head) do
+    tails
+    |> Enum.map_reduce(head, fn
+      t, h ->
+        if need_follow?(h, t) do
+          move_one(t, fdir(h, t))
+          |> Tuple.duplicate(2)
+        else
+          {t, t}
+        end
+    end)
+    |> elem(0)
+  end
+
+  defp maybe_append_trail({head, [_, _, _, _, _, _, _, _, tail] = tails}, trails, tail),
+    do: {{head, tails}, trails}
+
+  defp maybe_append_trail(
+         {head, [_, _, _, _, _, _, _, _, tail] = tails},
+         [tail | _] = trails,
+         _old_tail
+       ) do
+    {{head, tails}, trails}
+  end
+
+  defp maybe_append_trail({head, [_, _, _, _, _, _, _, _, tail] = tails}, trails, _) do
+    {{head, tails}, [tail | trails]}
+  end
+
+  defp dir("R"), do: {1, 0}
+  defp dir("L"), do: {-1, 0}
+  defp dir("U"), do: {0, 1}
+  defp dir("D"), do: {0, -1}
+
+  # which direction to follow head?
+  defp fdir(head, tail)
+
+  defp fdir({x, hy}, {x, ty}) do
+    if hy > ty do
+      {0, 1}
+    else
+      {0, -1}
+    end
+  end
+
+  defp fdir({hx, y}, {tx, y}) do
+    if hx > tx do
+      {1, 0}
+    else
+      {-1, 0}
+    end
+  end
+
+  defp fdir({hx, hy}, {tx, ty}) do
+    cond do
+      hx > tx and hy > ty ->
+        {1, 1}
+
+      hx > tx ->
+        {1, -1}
+
+      hy > ty ->
+        {-1, 1}
+
+      true ->
+        {-1, -1}
+    end
+  end
+
+  def need_follow?({hx, hy}, {tx, ty}) do
+    abs(hx - tx) > 1 or abs(hy - ty) > 1
+  end
+end
+
+input
+|> Kino.Input.read()
+|> String.split([" ", "\n"])
+|> Enum.chunk_every(2)
+|> Enum.map(fn [d, n] -> {d, String.to_integer(n)} end)
+|> Part2.simulate()
+|> Part2.count_trails()
+|> dbg()
+```
