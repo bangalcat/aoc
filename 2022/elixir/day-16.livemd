@@ -1,0 +1,307 @@
+# 2022 - day 16
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+input_1 = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule Day16.Valves do
+  def parse(inputs) do
+    inputs
+    |> String.split("\n")
+    |> Stream.map(fn line ->
+      Regex.run(~r/Valve (.+) has flow rate=(\d+); tunnels? leads? to valves? (.+)/, line,
+        capture: :all_but_first
+      )
+    end)
+    |> Stream.map(fn [name, flow_rate, valves] ->
+      %{
+        name: name,
+        flow_rate: flow_rate |> String.to_integer(),
+        next_valves: valves |> String.split(", ")
+      }
+    end)
+    |> Map.new(&{&1.name, &1})
+  end
+end
+
+input_1
+|> Kino.Input.read()
+|> Day16.Valves.parse()
+```
+
+14개의 flow_rate 0 아닌 애들에 대해서 나머지 모든 valve에서 이 valve로 오는 경로를 모두 구해놓기?
+
+근데 경로 중간에 열수도 있지
+
+시뮬레이션을 돌리되 비효율적이지 않도록 돌리는 방법?
+
+이미 갔던 valve를 다시 갈수도 있다.
+
+```elixir
+defmodule Day16.Part1 do
+  def solve(valves) do
+    active_valves = active_valves(valves)
+    path_graph = make_graph(valves)
+
+    state = %{
+      remain_time: 30,
+      curr: "AA",
+      released: 0,
+      valves: valves,
+      opened: MapSet.new(),
+      active_valves: active_valves,
+      path: ["AA"],
+      graph: path_graph
+    }
+
+    run(state)
+    # |> Enum.max_by(& &1.released, fn -> [] end)
+  end
+
+  def run(%{remain_time: 0} = state), do: [state]
+
+  def run(state) do
+    if MapSet.equal?(state.active_valves, state.opened) do
+      [state]
+    else
+      move_decision(state)
+      |> Stream.flat_map(&run(&1))
+      # |> Stream.reject(&(&1.released <= state.released))
+      |> Enum.max_by(& &1.released, fn -> [] end)
+      # |> Enum.to_list()
+      |> List.wrap()
+    end
+  end
+
+  defp active_valves(valves),
+    do:
+      valves
+      |> Map.values()
+      |> Enum.filter(&(&1.flow_rate > 0))
+      |> Enum.map(& &1.name)
+      |> MapSet.new()
+
+  def make_graph(valves) do
+    active_valves = active_valves(valves) |> Enum.to_list()
+
+    for start <- ["AA" | active_valves], dest <- active_valves, start != dest, into: %{} do
+      {{start, dest},
+       find_path(start, dest, valves, [start]) |> Enum.map(&length/1) |> Enum.min()}
+    end
+  end
+
+  defp find_path(curr, dest, valves, path) do
+    nxts = valves[curr].next_valves
+
+    Enum.flat_map(nxts, fn
+      ^dest ->
+        [Enum.reverse([dest | path])]
+
+      other ->
+        unless other in path do
+          find_path(other, dest, valves, [other | path])
+        else
+          []
+        end
+    end)
+    |> Enum.reject(&(&1 == []))
+  end
+
+  defp move_decision(state) do
+    next_valves = state.active_valves
+
+    for nxt <- next_valves,
+        state.curr != nxt,
+        not MapSet.member?(state.opened, nxt),
+        cost = state.graph[{state.curr, nxt}],
+        state.remain_time - cost >= 0 do
+      %{
+        state
+        | remain_time: state.remain_time - cost,
+          curr: nxt,
+          path: [{nxt, cost} | state.path],
+          opened: MapSet.put(state.opened, nxt),
+          released: state.released + state.valves[nxt].flow_rate * (state.remain_time - cost)
+      }
+    end
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Day16.Valves.parse()
+# |> Day16.Part1.make_graph()
+|> Day16.Part1.solve()
+```
+
+## Part 2
+
+elephant 와 내가 동시에 진행
+
+한번씩 움직이는 방식은 불가
+
+이동 가치가 있는 구간은 14개밖에 안된다.
+
+2개의 actor가 14개를 나눠 가지고, 그걸 수열정리하는 방식?
+
+1..14 -> n! * (14 - n)!
+
+### Optimization
+
+* 최소 3개 이상일거라고 가정
+* 서로 스위칭되어도 같은 결과이므로 `n <= 14 - n` 로 가정.
+* (3, 11) ... (7, 7) 정도만
+* 각각의 경우에 불가능한 케이스는 제거? 수열 결과가 26일을 초과하는 경우.
+
+```elixir
+defmodule Day16.Combination do
+  def comb([], _), do: []
+  def comb(_, 0), do: [[]]
+
+  def comb([h | t], n) when n > 0 do
+    for(l <- comb(t, n - 1), do: [h | l]) ++ comb(t, n)
+  end
+end
+
+Day16.Combination.comb(1..14 |> Enum.to_list(), 7)
+# |> Enum.count()
+```
+
+```elixir
+defmodule Day16.Part2 do
+  def solve(valves) do
+    active_valves = active_valves(valves)
+    path_graph = floyd_warshall(valves)
+
+    for n <- 6..7,
+        elephant_valves <- Day16.Combination.comb(active_valves, n) do
+      my_valves = active_valves -- elephant_valves
+      my_state = state(valves, MapSet.new(my_valves), path_graph)
+      elephant_state = state(valves, MapSet.new(elephant_valves), path_graph)
+
+      with %{released: r1, path: path1} <- run(my_state),
+           %{released: r2, path: path2} <- run(elephant_state) do
+        # {{path1, path2}, {r1, r2}, r1+ r2}
+        %{sum: r1 + r2, path1: path1, path2: path2}
+      else
+        err ->
+          # IO.inspect(err)
+          %{sum: 0}
+      end
+    end
+    |> Enum.max_by(& &1.sum)
+  end
+
+  def state(valves, active_valves, path_graph) do
+    %{
+      remain_time: 26,
+      curr: "AA",
+      released: 0,
+      valves: valves,
+      opened: MapSet.new(),
+      active_valves: active_valves,
+      path: ["AA"],
+      graph: path_graph,
+      best: 0
+    }
+  end
+
+  def run(state) do
+    if state.remain_time == 0 || MapSet.equal?(state.active_valves, state.opened) do
+      state
+    else
+      move_decision(state)
+      |> Enum.reduce(state, fn next_state, st ->
+        res_state = run(next_state)
+
+        case res_state.released < st.released do
+          true -> st
+          false -> res_state
+        end
+      end)
+    end
+  end
+
+  defp active_valves(valves),
+    do:
+      valves
+      |> Map.values()
+      |> Enum.filter(&(&1.flow_rate > 0))
+      |> Enum.map(& &1.name)
+
+  def floyd_warshall(valves) do
+    active_valves = active_valves(valves)
+
+    for start <- ["AA" | active_valves], dest <- active_valves, start != dest, into: %{} do
+      {{start, dest},
+       find_path(start, dest, valves, [start]) |> Enum.map(&length/1) |> Enum.min()}
+    end
+  end
+
+  defp find_path(curr, dest, valves, path) do
+    nxts = valves[curr].next_valves
+
+    Enum.flat_map(nxts, fn
+      ^dest ->
+        [Enum.reverse([dest | path])]
+
+      other ->
+        unless other in path do
+          find_path(other, dest, valves, [other | path])
+        else
+          []
+        end
+    end)
+    |> Enum.reject(&(&1 == []))
+  end
+
+  defp move_decision(state) do
+    if remain_best(state) + state.released >= state.best do
+      for nxt <- state.active_valves,
+          state.curr != nxt,
+          not MapSet.member?(state.opened, nxt),
+          cost = state.graph[{state.curr, nxt}],
+          state.remain_time - cost >= 0 do
+        released = state.released + state.valves[nxt].flow_rate * (state.remain_time - cost)
+
+        %{
+          state
+          | remain_time: state.remain_time - cost,
+            curr: nxt,
+            path: [{nxt, cost} | state.path],
+            opened: MapSet.put(state.opened, nxt),
+            released: released,
+            best: max(state.best, released)
+        }
+      end
+    else
+      []
+    end
+  end
+
+  defp remain_best(state) do
+    state.active_valves
+    |> Enum.map(&(state.valves[&1].flow_rate * (state.remain_time - 1)))
+    |> Enum.sum()
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Day16.Valves.parse()
+# |> Day16.Part1.floyd_warshall()
+|> Day16.Part2.solve()
+```

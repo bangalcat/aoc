@@ -1,0 +1,174 @@
+# Day 17
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.10.0"}
+])
+```
+
+## Part 1
+
+```elixir
+input = "<<<>>>>>>"
+
+for <<i <- input>>, reduce: [] do
+  acc -> [i, 1 | acc]
+end
+```
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+shpae =
+  """
+  ####
+
+  .#.
+  ###
+  .#.
+
+  ..#
+  ..#
+  ###
+
+  #
+  #
+  #
+  #
+
+  ##
+  ##
+  """
+  |> String.split("\n\n")
+
+shape_coords = {
+  # 1
+  [{0, 0}, {0, 1}, {0, 2}, {0, 3}],
+  # 3
+  [{0, 1}, {1, 0}, {1, 1}, {1, 2}, {2, 1}],
+  # 3
+  [{0, 0}, {0, 1}, {0, 2}, {1, 2}, {2, 2}],
+  # 4
+  [{0, 0}, {1, 0}, {2, 0}, {3, 0}],
+  # 2
+  [{0, 0}, {0, 1}, {1, 0}, {1, 1}]
+}
+
+grid = %{}
+
+input_1 = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>"
+
+defmodule Part1 do
+  @gap 4
+
+  @doc "simulate until input ends"
+  def simulate(input, shapes, grid, last) do
+    len = tuple_size(shapes)
+    shape_idx = 0
+    init_height = 0
+    shape = elem(shapes, shape_idx) |> Enum.map(fn {y, x} -> {y + init_height + @gap, x + 3} end)
+    rock_count = 0
+
+    String.to_charlist(input)
+    |> Stream.cycle()
+    |> Enum.reduce_while({grid, shape, shape_idx, init_height, rock_count}, fn
+      dir, {curr_grid, curr_shape, shape_idx, height, rcnt} ->
+        # 1. shift dir, next_coord, grid
+        curr_shape = shift_if_possible(curr_shape, dir, curr_grid)
+        # 2. fall dir, next_coord, grid
+        fell_shape = next_coord(curr_shape, :down)
+        # if can fall?
+        if can_move?(fell_shape, curr_grid) do
+          # then move next
+          {:cont, {curr_grid, fell_shape, shape_idx, height, rcnt}}
+        else
+          # else next shape 
+          new_grid = update_grid(curr_grid, curr_shape)
+          shape_idx = rem(shape_idx + 1, len)
+          new_height = max_height(height, curr_shape)
+          new_shape = next_shape(shapes, shape_idx, new_height)
+
+          if rcnt + 1 == last do
+            {:halt, {new_grid, new_shape, shape_idx, new_height}}
+          else
+            {:cont, {new_grid, new_shape, shape_idx, new_height, rcnt + 1}}
+          end
+        end
+    end)
+  end
+
+  def shift_if_possible(shape, dir, grid) do
+    next = next_coord(shape, dir)
+
+    if can_move?(next, grid) do
+      next
+    else
+      shape
+    end
+  end
+
+  def can_move?(shape, grid) do
+    not Enum.any?(shape, fn {y, x} -> y < 1 or x < 1 or x > 7 or Map.get(grid, {y, x}) == 1 end)
+  end
+
+  def update_grid(grid, shape) do
+    Enum.reduce(shape, grid, fn {y, x}, next_grid ->
+      Map.put(next_grid, {y, x}, 1)
+    end)
+  end
+
+  def next_coord(shape, ?<), do: Enum.map(shape, fn {y, x} -> {y, x - 1} end)
+  def next_coord(shape, ?>), do: Enum.map(shape, fn {y, x} -> {y, x + 1} end)
+  def next_coord(shape, :down), do: Enum.map(shape, fn {y, x} -> {y - 1, x} end)
+
+  def next_shape(shapes, shape_idx, height) do
+    elem(shapes, shape_idx)
+    |> Enum.map(fn {y, x} -> {y + height + @gap, x + 3} end)
+  end
+
+  def max_height(height, shape) do
+    {shape_height, _} = Enum.max_by(shape, fn {y, _x} -> y end)
+    max(shape_height, height)
+  end
+end
+```
+
+```elixir
+frame = Kino.Frame.new()
+```
+
+```elixir
+input = Kino.Input.read(input)
+
+{rgrid, rshape, rshape_idx, rheight} =
+  Part1.simulate(input, shape_coords, grid, 200)
+```
+
+```elixir
+defmodule Drawer do
+  def draw(grid) do
+    max_height = Map.keys(grid) |> Enum.map(&elem(&1, 0)) |> Enum.max()
+    max_width = 7
+
+    for y <- 1..max_height, x <- max_width..1, reduce: "" do
+      acc ->
+        c = if grid[{y, x}] == 1, do: "#", else: "."
+        acc = c <> acc
+
+        if x == 1 do
+          "\n" <> acc
+        else
+          acc
+        end
+    end
+  end
+end
+
+res = Drawer.draw(rgrid)
+```
+
+```elixir
+IO.puts(res)
+```

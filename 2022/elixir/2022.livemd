@@ -1,0 +1,21 @@
+# AOC 2022
+
+## Days
+
+* [day-1](day-1.livemd)
+* [day-2](day-2.livemd)
+* [day-3](day-3.livemd)
+* [day-4](day-4.livemd)
+* [day-5](day-5.livemd)
+* [day-6](day-6.livemd)
+* [day-7](day-7.livemd)
+* [day-8](day-8.livemd)
+* [day-9](day-9.livemd)
+* [day-10](day-10.livemd)
+* [day-11](day-11.livemd)
+* [day-12](day-12.livemd)
+* [day-13](day-13.livemd)
+* [day-14](day-14.livemd)
+* [day-15](day-15.livemd)
+* [day-16](day-16.livemd)
+* [day-17](day-17.livemd)

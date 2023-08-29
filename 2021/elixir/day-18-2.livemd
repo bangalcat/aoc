@@ -1,0 +1,13 @@
+# Aoc 2021 day 18
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.5.2"}
+])
+```
+
+## Section
+
+```elixir
+
+```

@@ -1,0 +1,130 @@
+# aoc 2022 - day 15
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Part 1
+
+* input line이 몇개 안되고 특정 y가 주어졌으니 해당 y에 대해서만 필터링하면 쉽게 풀릴듯
+
+```elixir
+input_1 = Kino.Input.textarea("")
+```
+
+```elixir
+input = Kino.Input.textarea("")
+```
+
+```elixir
+defmodule Part1 do
+  def parse(input) do
+    input
+    |> String.split("\n")
+    |> Enum.map(&parse_line/1)
+  end
+
+  defp parse_line(line) do
+    ~r/Sensor at x=(?<x>-?\d+), y=(?<y>-?\d+): closest beacon is at x=(?<bx>-?\d+), y\=(?<by>-?\d+)/
+    |> Regex.run(line, capture: :all_but_first)
+    |> Enum.map(&String.to_integer/1)
+  end
+
+  def solve(data, ty) do
+    data
+    |> Stream.map(fn [sx, sy, bx, by] ->
+      {[sx, sy, bx, by], manht(sx, sy, bx, by)}
+    end)
+    |> Stream.filter(fn {[_sx, sy, _bx, _by], dist} ->
+      ty >= sy - dist and ty <= sy + dist
+    end)
+    |> Enum.reduce(%{}, fn {[sx, sy, bx, by], dist}, acc ->
+      for x <- (sx - dist)..(sx + dist),
+          # y <- (sy - dist)..(sy + dist),
+          y = ty,
+          {x, y} != {bx, by},
+          manht(x, y, sx, sy) <= dist,
+          into: %{} do
+        {x, true}
+      end
+      |> Map.merge(acc)
+    end)
+    |> Enum.count()
+  end
+
+  defp manht(ax, ay, bx, by), do: abs(ax - bx) + abs(ay - by)
+end
+
+input
+|> Kino.Input.read()
+|> Part1.parse()
+# |> Enum.count()
+|> Part1.solve(2_000_000)
+```
+
+```elixir
+defmodule Part2 do
+  def solve(raw_data, mx) do
+    data =
+      raw_data
+      |> Enum.map(fn [sx, sy, bx, by] ->
+        {{sx, sy}, manht(sx, sy, bx, by)}
+      end)
+
+    data
+    |> Stream.flat_map(fn {{sx, sy}, dist} ->
+      peri({sx, sy}, dist + 1)
+    end)
+    |> Stream.filter(fn {x, y} ->
+      x >= 0 and x <= mx and y >= 0 and y <= mx
+    end)
+    |> Stream.reject(fn {x, y} ->
+      Enum.any?(data, &in_range?({x, y}, &1))
+    end)
+    |> Enum.uniq()
+  end
+
+  def manht(ax, ay, bx, by), do: abs(ax - bx) + abs(ay - by)
+
+  def peri({cx, cy}, rad) do
+    Stream.unfold({{cx, cy - rad}, {1, 1}}, fn
+      # top
+      {{x, _y}, {1, -1}} when x == cx ->
+        nil
+
+      # right
+      {{x, y}, {1, 1}} when y == cy ->
+        {{x, y}, {{x - 1, y + 1}, {-1, 1}}}
+
+      # bottom
+      {{x, y}, {-1, 1}} when x == cx ->
+        {{x, y}, {{x - 1, y - 1}, {-1, -1}}}
+
+      # left
+      {{x, y}, {-1, -1}} when y == cy ->
+        {{x, y}, {{x + 1, y - 1}, {1, -1}}}
+
+      {{x, y}, {dx, dy}} ->
+        {{x, y}, {{x + dx, y + dy}, {dx, dy}}}
+    end)
+  end
+
+  defp in_range?({x, y}, {{cx, cy}, dist}) do
+    manht(x, y, cx, cy) <= dist
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Part1.parse()
+|> Part2.solve(4_000_000)
+
+# |> Enum.take(1)
+# |> Enum.sum()
+```
+
+```elixir
+2_889_465 * 4_000_000 + 3_040_754
+```
