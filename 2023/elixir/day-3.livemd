@@ -1,0 +1,223 @@
+# 2023 - day 3
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11.3"}
+])
+```
+
+## Section
+
+```elixir
+sample_input = """
+467..114..
+...*......
+..35..633.
+......#...
+617*......
+.....+.58.
+..592.....
+......755.
+...$.*....
+.664.598..
+"""
+```
+
+```elixir
+puzzle_input = Kino.Input.textarea("input")
+```
+
+```elixir
+puzzle_input = Kino.Input.read(puzzle_input)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part1
+
+```elixir
+defmodule Day3.Part1 do
+  def solve(input) do
+    input
+    |> parse()
+    |> do_solve()
+  end
+
+  def do_solve(input_map) do
+    for {{r, _c}, {num, {st, ed}}} <- input_map,
+        included?((r - 1)..(r + 1), (st - 1)..(ed + 1), input_map) do
+      num
+    end
+    |> Enum.sum()
+  end
+
+  defp included?(r_range, c_range, input_map) do
+    for rr <- r_range, cc <- c_range, rr >= 0 and cc >= 0 do
+      {rr, cc}
+    end
+    |> Enum.any?(&is_binary(input_map[&1]))
+  end
+
+  def parse(input) do
+    input
+    |> String.split("\n")
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {line, ri}, acc ->
+      Map.merge(acc, parse_line(line, ri, 0))
+    end)
+  end
+
+  defp parse_line(line, ri, ci, acc \\ %{}, state \\ :none)
+
+  defp parse_line("", ri, ci, acc, state) do
+    case state do
+      :none ->
+        acc
+
+      {:num, num, start} ->
+        Map.put(acc, {ri, start}, {num, {start, ci - 1}})
+    end
+  end
+
+  defp parse_line(line, ri, ci, acc, :none) do
+    case line do
+      <<n::integer, rest::binary>> when n in ?0..?9 ->
+        parse_line(rest, ri, ci + 1, acc, {:num, n - ?0, ci})
+
+      "." <> rest ->
+        parse_line(rest, ri, ci + 1, acc, :none)
+
+      <<symbol::utf8, rest::binary>> ->
+        acc = Map.put(acc, {ri, ci}, <<symbol>>)
+        parse_line(rest, ri, ci + 1, acc, :none)
+    end
+  end
+
+  defp parse_line(line, ri, ci, acc, {:num, num, start}) do
+    case line do
+      <<n::integer, rest::binary>> when n in ?0..?9 ->
+        parse_line(rest, ri, ci + 1, acc, {:num, num * 10 + (n - ?0), start})
+
+      "." <> rest ->
+        acc = Map.put(acc, {ri, start}, {num, {start, ci - 1}})
+        parse_line(rest, ri, ci + 1, acc, :none)
+
+      <<symbol::utf8, rest::binary>> ->
+        acc = Map.put(acc, {ri, start}, {num, {start, ci - 1}})
+        acc = Map.put(acc, {ri, ci}, <<symbol>>)
+        parse_line(rest, ri, ci + 1, acc, :none)
+    end
+  end
+end
+```
+
+```elixir
+# Day3.Part1.solve(sample_input)
+Day3.Part1.solve(puzzle_input)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+```elixir
+defmodule Day3.Part2 do
+  def solve(input) do
+    input
+    |> parse()
+    |> do_solve()
+  end
+
+  def do_solve(input_map) do
+    for {{r, c}, :multiple} <- input_map do
+      get_adjacent_multi(r, c, input_map)
+    end
+    |> Enum.sum()
+  end
+
+  def get_adjacent_multi(r, c, input_map) do
+    set =
+      for ri <- (r - 1)..(r + 1),
+          ci <- (c - 1)..(c + 1),
+          ri >= 0 and ci >= 0,
+          match?({_, {_, _}}, input_map[{ri, ci}]),
+          {num, {st, ed}} = input_map[{ri, ci}],
+          reduce: MapSet.new() do
+        set ->
+          MapSet.put(set, {num, st, ed})
+      end
+
+    case MapSet.to_list(set) do
+      [{a, _, _}, {b, _, _}] -> a * b
+      _ -> 0
+    end
+  end
+
+  def parse(input) do
+    input
+    |> String.split("\n")
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {line, ri}, acc ->
+      Map.merge(acc, parse_line(line, ri, 0))
+    end)
+  end
+
+  defp parse_line(line, ri, ci, acc \\ %{}, state \\ :none)
+
+  defp parse_line("", ri, ci, acc, state) do
+    case state do
+      :none ->
+        acc
+
+      {:num, num, start} ->
+        Map.put(acc, {ri, start}, {num, {start, ci - 1}})
+    end
+  end
+
+  defp parse_line(line, ri, ci, acc, :none) do
+    case line do
+      <<n::integer, rest::binary>> when n in ?0..?9 ->
+        parse_line(rest, ri, ci + 1, acc, {:num, n - ?0, ci})
+
+      "*" <> rest ->
+        acc = Map.put(acc, {ri, ci}, :multiple)
+        parse_line(rest, ri, ci + 1, acc, :none)
+
+      <<_symbol::utf8, rest::binary>> ->
+        parse_line(rest, ri, ci + 1, acc, :none)
+    end
+  end
+
+  defp parse_line(line, ri, ci, acc, {:num, num, start}) do
+    case line do
+      <<n::integer, rest::binary>> when n in ?0..?9 ->
+        parse_line(rest, ri, ci + 1, acc, {:num, num * 10 + (n - ?0), start})
+
+      "*" <> rest ->
+        acc = Map.put(acc, {ri, ci}, :multiple)
+
+        acc =
+          start..(ci - 1)
+          |> Enum.reduce(acc, fn c, inner_acc ->
+            Map.put(inner_acc, {ri, c}, {num, {start, ci - 1}})
+          end)
+
+        parse_line(rest, ri, ci + 1, acc, :none)
+
+      <<_symbol::utf8, rest::binary>> ->
+        acc =
+          start..(ci - 1)
+          |> Enum.reduce(acc, fn c, inner_acc ->
+            Map.put(inner_acc, {ri, c}, {num, {start, ci - 1}})
+          end)
+
+        parse_line(rest, ri, ci + 1, acc, :none)
+    end
+  end
+end
+```
+
+```elixir
+# Day3.Part2.solve(sample_input)
+Day3.Part2.solve(puzzle_input)
+```

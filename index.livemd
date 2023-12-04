@@ -4,23 +4,51 @@
 
 ## 2021
 
-* [Day 1](2021/day-1.livemd)
-* [Day 2](2021/day-2.livemd)
-* [Day 3](2021/day-3.livemd)
-* [Day 4](2021/day-4.livemd)
-* [Day 5](2021/day-5.livemd)
-* [Day 6](2021/day-6.livemd)
-* [Day 7](2021/day-7.livemd)
-* [Day 8](2021/day-8.livemd)
-* [Day 9](2021/day-9.livemd)
-* [Day 10](2021/day-10.livemd)
-* [Day 11](2021/day-11.livemd)
-* [Day 12](2021/day-12.livemd)
-* [Day 13](2021/day-13.livemd)
-* [Day 14](2021/day-14.livemd)
-* [Day 15](2021/day-15.livemd)
-* [Day 16](2021/day-16.livemd)
+### Elixir
 
-```elixir
+* [Day 1](2021/elixir/day-1.livemd)
+* [Day 2](2021/elixir/day-2.livemd)
+* [Day 3](2021/elixir/day-3.livemd)
+* [Day 4](2021/elixir/day-4.livemd)
+* [Day 5](2021/elixir/day-5.livemd)
+* [Day 6](2021/elixir/day-6.livemd)
+* [Day 7](2021/elixir/day-7.livemd)
+* [Day 8](2021/elixir/day-8.livemd)
+* [Day 9](2021/elixir/day-9.livemd)
+* [Day 10](2021/elixir/day-10.livemd)
+* [Day 11](2021/elixir/day-11.livemd)
+* [Day 12](2021/elixir/day-12.livemd)
+* [Day 13](2021/elixir/day-13.livemd)
+* [Day 14](2021/elixir/day-14.livemd)
+* [Day 15](2021/elixir/day-15.livemd)
+* [Day 16](2021/elixir/day-16.livemd)
 
-```
+## 2022
+
+### Elixir
+
+* [day-01](2022/elixir/day-1.livemd)
+* [day-02](2022/elixir/day-2.livemd)
+* [day-03](2022/elixir/day-3.livemd)
+* [day-04](2022/elixir/day-4.livemd)
+* [day-05](2022/elixir/day-5.livemd)
+* [day-06](2022/elixir/day-6.livemd)
+* [day-07](2022/elixir/day-7.livemd)
+* [day-08](2022/elixir/day-8.livemd)
+* [day-09](2022/elixir/day-9.livemd)
+* [day-10](2022/elixir/day-10.livemd)
+* [day-11](2022/elixir/day-11.livemd)
+* [day-12](2022/elixir/day-12.livemd)
+* [day-13](2022/elixir/day-13.livemd)
+* [day-14](2022/elixir/day-14.livemd)
+* [day-15](2022/elixir/day-15.livemd)
+* [day-16](2022/elixir/day-16.livemd)
+* [day-17](2022/elixir/day-17.livemd)
+
+## 2023
+
+### Elixir
+
+* [day-01](2023/elixir/day-1.livemd)
+* [day-02](2023/elixir/day-2.livemd)
+* [day-03](2023/elixir/day-3.livemd)

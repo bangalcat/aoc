@@ -1,0 +1,150 @@
+# 2023 - day2
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11.3"}
+])
+```
+
+## Section
+
+```elixir
+puzzle_input_kino = Kino.Input.textarea("puzzle input")
+```
+
+```elixir
+sample_input = """
+Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green
+Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue
+Game 3: 8 green, 6 blue, 20 red; 5 blue, 4 red, 13 green; 5 green, 1 red
+Game 4: 1 green, 3 red, 6 blue; 3 green, 6 red; 3 green, 15 blue, 14 red
+Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green
+"""
+
+puzzle_input = Kino.Input.read(puzzle_input_kino)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 1
+
+```elixir
+defmodule Part1 do
+  @capacity %{
+    "red" => 12,
+    "green" => 13,
+    "blue" => 14
+  }
+
+  def solve(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&parse/1)
+    |> Enum.filter(&validate?/1)
+    |> Enum.map(& &1.id)
+    |> Enum.sum()
+  end
+
+  def validate?(%{subsets: subsets}) do
+    Enum.all?(subsets, &validate_subsets?/1)
+  end
+
+  defp validate_subsets?(subsets) do
+    subsets
+    |> Enum.reduce(%{"red" => 0, "green" => 0, "blue" => 0}, fn {n, color}, acc ->
+      Map.update(acc, color, n, &(&1 + n))
+    end)
+    |> Enum.all?(fn {color, count} -> @capacity[color] >= count end)
+  end
+
+  def parse(line)
+
+  def parse(line) do
+    [index_str, subsets_str] = String.split(line, ": ", parts: 2)
+    game_id = parse_id(index_str)
+    subsets = parse_subsets(subsets_str)
+    %{id: game_id, subsets: subsets}
+  end
+
+  defp parse_id(<<"Game ", id::binary>>) do
+    String.to_integer(id)
+  end
+
+  defp parse_subsets(subsets_str) do
+    subsets_str
+    |> String.split("; ", trim: true)
+    |> Enum.map(
+      &(String.split(&1, ", ", trim: true)
+        |> Enum.map(fn subset -> parse_subset(subset) end))
+    )
+  end
+
+  defp parse_subset(subset) do
+    {n, " " <> color} = Integer.parse(subset)
+    {n, color}
+  end
+end
+```
+
+```elixir
+Part1.solve(puzzle_input)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  def solve(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&parse/1)
+    |> Enum.map(&find_minimum_set/1)
+    |> Enum.map(&product/1)
+    |> Enum.sum()
+  end
+
+  def product(%{"red" => r, "blue" => b, "green" => g}) do
+    r * b * g
+  end
+
+  def find_minimum_set(%{subsets: subsets}) do
+    subsets
+    |> Enum.reduce(%{}, fn subset, acc ->
+      Map.merge(acc, subset, fn _k, v1, v2 -> max(v1, v2) end)
+    end)
+  end
+
+  def parse(line)
+
+  def parse(line) do
+    [index_str, subsets_str] = String.split(line, ": ", parts: 2)
+    game_id = parse_id(index_str)
+    subsets = parse_subsets(subsets_str)
+    %{id: game_id, subsets: subsets}
+  end
+
+  defp parse_id(<<"Game ", id::binary>>) do
+    String.to_integer(id)
+  end
+
+  defp parse_subsets(subsets_str) do
+    subsets_str
+    |> String.split("; ", trim: true)
+    |> Enum.map(
+      &(String.split(&1, ", ", trim: true)
+        |> Map.new(fn subset -> parse_subset(subset) end))
+    )
+  end
+
+  defp parse_subset(subset) do
+    {n, " " <> color} = Integer.parse(subset)
+    {color, n}
+  end
+end
+```
+
+```elixir
+Part2.solve(puzzle_input)
+```
