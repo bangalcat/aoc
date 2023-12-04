@@ -1,0 +1,138 @@
+# 2023 - day 4
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11.3"}
+])
+```
+
+## Section
+
+```elixir
+sample_input = """
+Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53
+Card 2: 13 32 20 16 61 | 61 30 68 82 17 32 24 19
+Card 3:  1 21 53 59 44 | 69 82 63 72 16 21 14  1
+Card 4: 41 92 73 84 69 | 59 84 76 51 58  5 54 83
+Card 5: 87 83 26 28 32 | 88 30 70 12 93 22 82 36
+Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11
+"""
+```
+
+```elixir
+puzzle_input = Kino.Input.textarea("input")
+```
+
+```elixir
+puzzle_input = Kino.Input.read(puzzle_input)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 1
+
+```elixir
+defmodule Day4.Part1 do
+  def solve(input_str) do
+    input_str
+    |> parse()
+    |> Enum.map(&scoring/1)
+    |> Enum.sum()
+  end
+
+  def parse(input_str) do
+    input_str
+    |> String.split("\n", trim: true)
+    |> Enum.map(&parse_line/1)
+  end
+
+  defp scoring(%{winning: winning, holding: holding}) do
+    win = MapSet.new(winning)
+    hol = MapSet.new(holding)
+
+    win
+    |> MapSet.intersection(hol)
+    |> MapSet.size()
+    |> then(&if(&1 > 0, do: :math.pow(2, &1 - 1) |> round(), else: 0))
+  end
+
+  defp parse_line(line) do
+    ["Card " <> card_index_str, winning_num_str, holding_str] = String.split(line, [": ", " | "])
+    card_index = to_int(card_index_str)
+    winning = winning_num_str |> String.split(" ", trim: true) |> Enum.map(&to_int/1)
+    holding = holding_str |> String.split(" ", trim: true) |> Enum.map(&to_int/1)
+    %{id: card_index, winning: winning, holding: holding}
+  end
+
+  defp to_int(str), do: str |> String.trim() |> Integer.parse() |> elem(0)
+end
+```
+
+```elixir
+Day4.Part1.solve(puzzle_input)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+```elixir
+defmodule Day4.Part2 do
+  def solve(input_str) do
+    input_str
+    |> parse()
+    |> process()
+    |> Map.values()
+    |> Enum.sum()
+  end
+
+  defp process(card_list) do
+    card_list
+    |> Enum.reduce_while(%{}, fn card, instance_map ->
+      copies = Map.get(instance_map, card.id, 0)
+
+      if copies + card.matching > 0 do
+        instance_map =
+          for i <- 1..card.matching//1, reduce: instance_map do
+            acc ->
+              Map.update(acc, card.id + i, copies + 1, &(&1 + copies + 1))
+          end
+          |> Map.update(card.id, 1, &(&1 + 1))
+
+        {:cont, instance_map}
+      else
+        {:halt, instance_map}
+      end
+    end)
+  end
+
+  def parse(input_str) do
+    input_str
+    |> String.split("\n", trim: true)
+    |> Enum.map(&parse_line/1)
+  end
+
+  defp parse_line(line) do
+    ["Card " <> card_index_str, winning_num_str, holding_str] = String.split(line, [": ", " | "])
+    card_index = to_int(card_index_str)
+    winning = winning_num_str |> String.split(" ", trim: true) |> Enum.map(&to_int/1)
+    holding = holding_str |> String.split(" ", trim: true) |> Enum.map(&to_int/1)
+    %{id: card_index, winning: winning, holding: holding, matching: matching(winning, holding)}
+  end
+
+  defp matching(winning, holding) do
+    win = MapSet.new(winning)
+    hol = MapSet.new(holding)
+
+    win
+    |> MapSet.intersection(hol)
+    |> MapSet.size()
+  end
+
+  defp to_int(str), do: str |> String.trim() |> Integer.parse() |> elem(0)
+end
+```
+
+```elixir
+Day4.Part2.solve(puzzle_input)
+```

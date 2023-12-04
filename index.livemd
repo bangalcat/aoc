@@ -49,6 +49,7 @@
 
 ### Elixir
 
-* [day-01](2023/elixir/day-1.livemd)
-* [day-02](2023/elixir/day-2.livemd)
-* [day-03](2023/elixir/day-3.livemd)
+* [day-1](2023/elixir/day-1.livemd)
+* [day-2](2023/elixir/day-2.livemd)
+* [day-3](2023/elixir/day-3.livemd)
+* [day-4](2023/elixir/day-4.livemd)
