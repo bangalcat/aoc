@@ -1,0 +1,80 @@
+# 2023 - day 6
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11.3"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+
+sample_input = """
+Time:      7  15   30
+Distance:  9  40  200
+"""
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 1
+
+```elixir
+defmodule Day6 do
+  defmodule Part1 do
+    def solve(input_str) do
+      input_str
+      |> Day6.parse()
+      |> do_solve()
+    end
+
+    defp do_solve(pairs) do
+      pairs
+      |> Enum.map(&count_record/1)
+      |> Enum.product()
+    end
+
+    def count_record({time, distance}) do
+      for t <- 1..(time - 1), (time - t) * t > distance, reduce: 0 do
+        acc -> acc + 1
+      end
+    end
+  end
+
+  defmodule Part2 do
+    def solve(input_str) do
+      input_str
+      |> Day6.parse2()
+      |> Day6.Part1.count_record()
+    end
+  end
+
+  def parse(input_str) do
+    ["Time:" <> times, "Distance:" <> distances] = input_str |> String.split("\n", trim: true)
+    time_list = times |> String.split(" ", trim: true) |> Enum.map(&String.to_integer/1)
+    distance_list = distances |> String.split(" ", trim: true) |> Enum.map(&String.to_integer/1)
+    Enum.zip(time_list, distance_list)
+  end
+
+  def parse2(input_str) do
+    ["Time:" <> times, "Distance:" <> distances] = input_str |> String.split("\n", trim: true)
+    time = times |> String.replace("\s", "") |> String.to_integer()
+    distance = distances |> String.replace("\s", "") |> String.to_integer()
+    {time, distance}
+  end
+end
+```
+
+```elixir
+Day6.Part1.solve(input)
+```
+
+```elixir
+Day6.Part2.solve(input)
+```

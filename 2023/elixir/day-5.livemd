@@ -1,0 +1,209 @@
+# 2023 day 5
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11.3"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+
+sample_input = """
+seeds: 79 14 55 13
+
+seed-to-soil map:
+50 98 2
+52 50 48
+
+soil-to-fertilizer map:
+0 15 37
+37 52 2
+39 0 15
+
+fertilizer-to-water map:
+49 53 8
+0 11 42
+42 0 7
+57 7 4
+
+water-to-light map:
+88 18 7
+18 25 70
+
+light-to-temperature map:
+45 77 23
+81 45 19
+68 64 13
+
+temperature-to-humidity map:
+0 69 1
+1 0 69
+
+humidity-to-location map:
+60 56 37
+56 93 4
+"""
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 1 & Part 2
+
+```elixir
+defmodule Day5.Naive do
+  defmodule Part1 do
+    def solve(input_str) do
+      {seeds, mapper} =
+        input_str
+        |> Day5.Naive.parse(:normal)
+
+      seeds
+      |> Enum.map(mapper)
+      |> Enum.min()
+    end
+  end
+
+  defmodule Part2 do
+    def solve(input_str) do
+      {seeds, mapper} =
+        input_str
+        |> Day5.Naive.parse(:reverse)
+
+      included_in_seeds? = build_seeds_container(seeds)
+
+      1
+      |> Stream.iterate(&(&1 + 1))
+      |> Enum.find(fn i ->
+        source = mapper.(i)
+        included_in_seeds?.(source)
+      end)
+    end
+
+    defp build_seeds_container(seeds) do
+      seeds
+      |> Enum.chunk_every(2)
+      |> Enum.reduce(fn _ -> false end, fn [start, range], acc_fn ->
+        fn
+          target ->
+            if target in start..(start + range - 1) do
+              true
+            else
+              acc_fn.(target)
+            end
+        end
+      end)
+    end
+  end
+
+  def parse(input_str, :normal = mode) do
+    [seeds | mappers] =
+      input_str
+      |> String.split("\n\n", trim: true)
+      |> Enum.map(&parse_paragraph(&1, mode))
+
+    mapper =
+      mappers
+      |> Enum.reverse()
+      |> Enum.reduce(&Function.identity/1, fn {_, mapper}, acc_fn ->
+        &acc_fn.(mapper.(&1))
+      end)
+
+    {seeds, mapper}
+  end
+
+  def parse(input_str, :reverse = mode) do
+    [seeds | mappers] =
+      input_str
+      |> String.split("\n\n", trim: true)
+      |> Enum.map(&parse_paragraph(&1, mode))
+
+    mapper =
+      mappers
+      |> Enum.reduce(&Function.identity/1, fn {_, mapper}, acc_fn ->
+        &acc_fn.(mapper.(&1))
+      end)
+
+    {seeds, mapper}
+  end
+
+  defp parse_paragraph("seeds: " <> seeds, _mode) do
+    seeds
+    |> String.split(" ", trim: true)
+    |> Enum.map(&String.to_integer/1)
+  end
+
+  defp parse_paragraph("seed-to-soil map:\n" <> lines, mode) do
+    {{:seed, :soil}, parse_mapper(lines, mode)}
+  end
+
+  defp parse_paragraph("soil-to-fertilizer map:\n" <> lines, mode) do
+    {{:soil, :fertilizer}, parse_mapper(lines, mode)}
+  end
+
+  defp parse_paragraph("fertilizer-to-water map:\n" <> lines, mode) do
+    {{:fertilizer, :water}, parse_mapper(lines, mode)}
+  end
+
+  defp parse_paragraph("water-to-light map:\n" <> lines, mode) do
+    {{:water, :light}, parse_mapper(lines, mode)}
+  end
+
+  defp parse_paragraph("light-to-temperature map:\n" <> lines, mode) do
+    {{:light, :temperature}, parse_mapper(lines, mode)}
+  end
+
+  defp parse_paragraph("temperature-to-humidity map:\n" <> lines, mode) do
+    {{:temperature, :humidity}, parse_mapper(lines, mode)}
+  end
+
+  defp parse_paragraph("humidity-to-location map:\n" <> lines, mode) do
+    {{:humidity, :location}, parse_mapper(lines, mode)}
+  end
+
+  defp parse_mapper(lines, mode) do
+    lines
+    |> String.split(["\n", " "], trim: true)
+    |> Enum.chunk_every(3)
+    |> Enum.map(fn [dest, source, range] ->
+      dest = String.to_integer(dest)
+      source = String.to_integer(source)
+      range = String.to_integer(range)
+
+      if mode == :reverse do
+        {dest, source, range}
+      else
+        {source, dest, range}
+      end
+    end)
+    |> build_mapper()
+  end
+
+  defp build_mapper(maps) do
+    maps
+    |> Enum.reduce(&Function.identity/1, fn {source, dest, range}, acc_fun ->
+      fn
+        target when target in source..(source + range - 1) ->
+          target + (dest - source)
+
+        out_of_range ->
+          acc_fun.(out_of_range)
+      end
+    end)
+  end
+end
+```
+
+```elixir
+Day5.Naive.Part1.solve(input)
+```
+
+```elixir
+Day5.Naive.Part2.solve(input)
+```

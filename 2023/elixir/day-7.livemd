@@ -1,0 +1,151 @@
+# 2023 - day 7
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11.3"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+
+sample_input = """
+32T3K 765
+T55J5 684
+KK677 28
+KTJJT 220
+QQQJA 483
+"""
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Section
+
+```elixir
+defmodule Day7 do
+  defmodule Part1 do
+    @card_order ~c"AKQJT98765432"
+                |> Enum.reverse()
+                |> Enum.with_index(0)
+                |> Enum.into(%{})
+
+    def solve(input_str) do
+      input_str
+      |> Day7.parse()
+      |> Enum.sort(&Day7.card_sort(&1, &2, fn cards -> cards_label(cards) end, @card_order))
+      |> Enum.with_index(1)
+      |> Enum.map(fn {{_, bid}, rank} -> bid * rank end)
+      |> Enum.sum()
+    end
+
+    defp cards_label(cards) do
+      cards_counter =
+        cards
+        |> Enum.reduce(%{}, fn card, counter ->
+          Map.update(counter, card, 1, &(&1 + 1))
+        end)
+
+      counts = Map.values(cards_counter) |> Enum.sort(:desc)
+      determine_card_label(counts)
+    end
+
+    def determine_card_label(counts)
+    def determine_card_label([5]), do: {1, :five_of_a_kind}
+    def determine_card_label([4, 1]), do: {2, :four_of_a_kind}
+    def determine_card_label([3, 2]), do: {3, :full_house}
+    def determine_card_label([3, 1, 1]), do: {4, :three_of_a_kind}
+    def determine_card_label([2, 2, 1]), do: {5, :two_pair}
+    def determine_card_label([2, 1, 1, 1]), do: {6, :one_pair}
+    def determine_card_label(_), do: {7, :high_card}
+  end
+
+  def card_sort({cards1, _bid1}, {cards2, _bid2}, label_fn, card_order_map) do
+    cards1_label = label_fn.(cards1)
+    cards2_label = label_fn.(cards2)
+
+    cond do
+      cards1_label < cards2_label ->
+        false
+
+      cards1_label > cards2_label ->
+        true
+
+      true ->
+        Day7.compare_cards(cards1, cards2, card_order_map)
+    end
+  end
+
+  def parse(input_str) do
+    input_str
+    |> String.split(["\n", " "], trim: true)
+    |> Enum.chunk_every(2)
+    |> Enum.map(fn [cards, bid] ->
+      {String.to_charlist(cards), String.to_integer(bid)}
+    end)
+  end
+
+  def compare_cards(cards1, cards2, card_order_map) do
+    Enum.zip(cards1, cards2)
+    |> Enum.reduce_while(true, fn {c1, c2}, lt? ->
+      cond do
+        card_order_map[c1] < card_order_map[c2] -> {:halt, true}
+        card_order_map[c1] > card_order_map[c2] -> {:halt, false}
+        true -> {:cont, lt?}
+      end
+    end)
+  end
+end
+```
+
+```elixir
+Day7.Part1.solve(input)
+```
+
+## Part 2
+
+```elixir
+defmodule Day7.Part2 do
+  @card_order2 ~c"AKQT98765432J" |> Enum.reverse() |> Enum.with_index(0) |> Enum.into(%{})
+
+  def solve(input_str) do
+    input_str
+    |> Day7.parse()
+    |> Enum.sort(&Day7.card_sort(&1, &2, fn cards -> cards_label(cards) end, @card_order2))
+    |> Enum.with_index(1)
+    |> Enum.map(fn {{_, bid}, rank} -> bid * rank end)
+    |> Enum.sum()
+  end
+
+  def cards_label(cards) do
+    cards_counter =
+      cards
+      |> Enum.reduce(%{}, fn card, counter ->
+        Map.update(counter, card, 1, &(&1 + 1))
+      end)
+
+    counts = Map.values(cards_counter) |> Enum.sort(:desc)
+    determine_card_label(counts, cards_counter)
+  end
+
+  def determine_card_label([5], _), do: {1, :five_of_a_kind}
+  def determine_card_label([4, 1], %{?J => _}), do: {1, :five_of_a_kind}
+  def determine_card_label([3, 2], %{?J => _}), do: {1, :five_of_a_kind}
+  def determine_card_label([3, 1, 1], %{?J => _}), do: {2, :four_of_a_kind}
+  def determine_card_label([2, 2, 1], %{?J => 2}), do: {2, :four_of_a_kind}
+  def determine_card_label([2, 2, 1], %{?J => 1}), do: {3, :full_house}
+  def determine_card_label([2, 1, 1, 1], %{?J => _}), do: {4, :three_of_a_kind}
+  def determine_card_label([1, 1, 1, 1, 1], %{?J => 1}), do: {6, :one_pair}
+  def determine_card_label(counts, _), do: Day7.Part1.determine_card_label(counts)
+end
+```
+
+```elixir
+Day7.Part2.solve(input)
+```
