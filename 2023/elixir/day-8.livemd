@@ -1,0 +1,164 @@
+# 2023 day 8
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11.3"}
+])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+sample_input = """
+LLR
+
+AAA = (BBB, BBB)
+BBB = (AAA, ZZZ)
+ZZZ = (ZZZ, ZZZ)
+"""
+
+input = Kino.Input.read(input)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 1
+
+```elixir
+defmodule Day8 do
+  defmodule Part1 do
+    def solve(input_str) do
+      data = Day8.parse(input_str)
+
+      data.dirs
+      |> String.to_charlist()
+      |> Stream.cycle()
+      |> Stream.with_index(0)
+      |> Enum.reduce_while("AAA", fn
+        {_, step}, "ZZZ" ->
+          {:halt, step}
+
+        {dir, _step}, node ->
+          next = Day8.move_one(node, dir, data.map)
+          {:cont, next}
+      end)
+    end
+  end
+
+  def move_one(node, dir, map) do
+    case dir do
+      ?L -> map[node] |> elem(0)
+      ?R -> map[node] |> elem(1)
+    end
+  end
+
+  def parse(input_str) do
+    [dir_str, map_str] = input_str |> String.split("\n\n", trim: true)
+
+    %{dirs: dir_str, map: parse_map(map_str)}
+  end
+
+  defp parse_map(map_str) do
+    map_str
+    |> String.split("\n", trim: true)
+    |> Enum.map(&parse_map_line/1)
+    |> Enum.into(%{})
+  end
+
+  defp parse_map_line(<<cur::bytes-3, " = (", left::bytes-3, ", ", right::bytes-3, ")">>) do
+    {cur, {left, right}}
+  end
+end
+```
+
+```elixir
+Day8.Part1.solve(sample_input)
+```
+
+```elixir
+Day8.Part1.solve(input)
+```
+
+## Part 2
+
+```elixir
+sample_input2 = """
+LR
+
+11A = (11B, XXX)
+11B = (XXX, 11Z)
+11Z = (11B, XXX)
+22A = (22B, XXX)
+22B = (22C, 22C)
+22C = (22Z, 22Z)
+22Z = (22B, 22B)
+XXX = (XXX, XXX)
+"""
+```
+
+```elixir
+defmodule Day8.Part2 do
+  def solve(input_str) do
+    data = Day8.parse(input_str)
+
+    data.map
+    |> start_keys()
+    |> Enum.map(&simulate_one(&1, data))
+    |> Enum.reduce(fn a, b -> div(a * b, Integer.gcd(a, b)) end)
+  end
+
+  def simulate_one(start_node, data) do
+    dir_len = byte_size(data.dirs)
+
+    data.dirs
+    |> String.to_charlist()
+    |> Stream.cycle()
+    |> Stream.with_index(0)
+    |> Enum.reduce_while(
+      {start_node, %{}},
+      fn {dir, step}, {cur_node, visit} ->
+        # this is at cycle point
+        if is_map_key(visit, cur_node) and rem(step - visit[cur_node], dir_len) == 0 do
+          {:halt,
+           Enum.find_value(visit, fn {node, steps} -> String.ends_with?(node, "Z") && steps end)}
+        else
+          visit = Map.put(visit, cur_node, step)
+          next_node = Day8.move_one(cur_node, dir, data.map)
+          {:cont, {next_node, visit}}
+        end
+      end
+    )
+  end
+
+  defp start_keys(map) do
+    map
+    |> Map.keys()
+    |> Enum.filter(&String.ends_with?(&1, "A"))
+  end
+
+  @deprecated "timeout solution"
+  def simulate_all(start_keys, data) do
+    data.dirs
+    |> String.to_charlist()
+    |> Stream.cycle()
+    |> Stream.with_index(1)
+    |> Enum.reduce_while(start_keys, fn {dir, step}, cur_nodes ->
+      next_nodes = Enum.map(cur_nodes, &Day8.move_one(&1, dir, data.map))
+
+      if Enum.all?(next_nodes, &String.ends_with?(&1, "Z")) do
+        {:halt, step}
+      else
+        {:cont, next_nodes}
+      end
+    end)
+  end
+end
+```
+
+```elixir
+Day8.Part2.solve(input)
+```
