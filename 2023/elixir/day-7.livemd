@@ -46,11 +46,7 @@ defmodule Day7 do
     end
 
     defp cards_label(cards) do
-      cards_counter =
-        cards
-        |> Enum.reduce(%{}, fn card, counter ->
-          Map.update(counter, card, 1, &(&1 + 1))
-        end)
+      cards_counter = Enum.frequencies(cards)
 
       counts = Map.values(cards_counter) |> Enum.sort(:desc)
       determine_card_label(counts)
@@ -124,11 +120,7 @@ defmodule Day7.Part2 do
   end
 
   def cards_label(cards) do
-    cards_counter =
-      cards
-      |> Enum.reduce(%{}, fn card, counter ->
-        Map.update(counter, card, 1, &(&1 + 1))
-      end)
+    cards_counter = Enum.frequencies(cards)
 
     counts = Map.values(cards_counter) |> Enum.sort(:desc)
     determine_card_label(counts, cards_counter)
