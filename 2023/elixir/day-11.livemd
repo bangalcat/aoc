@@ -1,0 +1,119 @@
+# Untitled notebook
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.14.1"}
+])
+```
+
+## Part 1
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.split("\n")
+|> Enum.with_index(0)
+|> Enum.flat_map(fn {line, r} ->
+  line
+  |> String.to_charlist()
+  |> Enum.with_index(0)
+  |> Enum.filter(&match?({?#, _}, &1))
+  |> Enum.map(fn {_, c} -> {r, c} end)
+end)
+```
+
+```elixir
+defmodule Day11 do
+  def input_to_space(input) do
+    galaxies = galaxies(input)
+    space_size = space_size(input)
+
+    {galaxies, space_size}
+  end
+
+  defp galaxies(input) do
+    input
+    |> String.split("\n")
+    |> Enum.with_index(0)
+    |> Enum.flat_map(fn {line, r} ->
+      line
+      |> String.to_charlist()
+      |> Enum.with_index(0)
+      |> Enum.filter(&match?({?#, _}, &1))
+      |> Enum.map(fn {_, c} -> {r, c} end)
+    end)
+  end
+
+  defp space_size(input) do
+    input
+    |> String.split("\n")
+    |> then(fn [l | _] = lines ->
+      col = String.length(l)
+      row = length(lines)
+      {row, col}
+    end)
+  end
+
+  def expand_universe({galaxies, {rows, cols} = space_size}, scale \\ 2) do
+    {empty_rows, empty_cols} = empty_spaces({galaxies, space_size})
+
+    expanded_galaxies = 
+    for {r, c} <- galaxies do
+      row_expanded = empty_rows |> Enum.count(& &1 < r) |> Kernel.*(scale - 1)
+      col_expanded = empty_cols |> Enum.count(& &1 < c) |> Kernel.*(scale - 1)
+      {r + row_expanded, c + col_expanded}
+    end
+
+    new_space_size = {rows + Enum.count(empty_rows), cols + Enum.count(empty_cols)}
+    {expanded_galaxies, new_space_size}
+  end
+
+  defp empty_spaces({galaxies, space_size}) do
+    {row, col} = space_size
+    rows = galaxies |> Enum.map(&elem(&1, 0))
+    cols = galaxies |> Enum.map(&elem(&1, 1))
+
+    empty_rows = Enum.to_list(0..row-1) -- rows
+    empty_cols = Enum.to_list(0..col-1) -- cols
+
+    {empty_rows, empty_cols}
+  end
+
+  def find_shortest_paths({galaxies, _space_size}) do
+    galaxies
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {{sr, sc}, i}, acc ->
+      galaxies
+      |> Enum.drop(i + 1)
+      |> Enum.reduce(acc, fn {tr, tc}, acc ->
+        dist = abs(tr - sr) + abs(tc - sc)
+        Map.put(acc, {{sr, sc}, {tr, tc}}, dist)
+      end)
+    end)
+  end
+end
+
+input
+|> Kino.Input.read()
+|> Day11.input_to_space()
+|> Day11.expand_universe()
+|> Day11.find_shortest_paths()
+|> Map.values()
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+input
+|> Kino.Input.read()
+|> Day11.input_to_space()
+|> Day11.expand_universe(1000000)
+|> Day11.find_shortest_paths()
+|> Map.values()
+|> Enum.sum()
+```
